@@ -1,0 +1,5 @@
+{
+  "name": "NIGHT SHIFT",
+  "description": "A dark-mode-first task management system designed for developers working the night shift. Features local JSON persistence and productivity stats.",
+  "requestFramePermissions": []
+}
