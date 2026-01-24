@@ -5,7 +5,7 @@ import TaskBoard from './components/TaskBoard';
 import Stats from './components/Stats';
 import ZenArea from './components/ZenArea';
 import Clock from './components/Clock';
-import { Moon, Download, Upload, Cpu, Layout, Terminal, PanelLeft, Menu, X, Coffee } from 'lucide-react';
+import { Moon, Cpu, Layout, Terminal, PanelLeft, Menu, X, Coffee } from 'lucide-react';
 
 const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -116,25 +116,27 @@ const App: React.FC = () => {
               <Terminal size={12} /> Data Sync
             </label>
             
-            <button 
-              onClick={handleExport}
-              className="w-full flex items-center justify-center gap-2 px-3 py-3 bg-gray-900 border border-gray-700 hover:border-neon-blue text-xs text-gray-300 rounded transition-colors"
-            >
-              <Download size={14} /> Export JSON
-            </button>
-            
-            <div className="relative w-full">
-              <input 
-                type="file" 
-                accept=".json"
-                onChange={handleImport}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              />
+            <div className="flex gap-2">
               <button 
-                className="w-full flex items-center justify-center gap-2 px-3 py-3 bg-gray-900 border border-gray-700 hover:border-neon-red text-xs text-gray-300 rounded transition-colors"
+                onClick={handleExport}
+                className="flex-1 flex items-center justify-center px-3 py-2 bg-gray-900 border border-gray-700 hover:border-neon-blue text-xs text-gray-300 rounded transition-colors font-mono hover:text-white"
               >
-                <Upload size={14} /> Import JSON
+                EXPORT
               </button>
+              
+              <div className="relative flex-1">
+                <input 
+                  type="file" 
+                  accept=".json"
+                  onChange={handleImport}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <button 
+                  className="w-full flex items-center justify-center px-3 py-2 bg-gray-900 border border-gray-700 hover:border-neon-red text-xs text-gray-300 rounded transition-colors font-mono hover:text-white"
+                >
+                  IMPORT
+                </button>
+              </div>
             </div>
             {fileError && <p className="text-neon-red text-[10px]">{fileError}</p>}
           </div>
