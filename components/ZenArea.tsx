@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, RotateCcw, Quote, Coffee, Brain, Zap, Maximize, Minimize } from 'lucide-react';
 
 const TECH_QUOTES = [
@@ -28,6 +28,7 @@ const ZenArea: React.FC = () => {
   const [isActive, setIsActive] = useState(false);
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -44,6 +45,15 @@ const ZenArea: React.FC = () => {
     return () => clearInterval(interval);
   }, [isActive, timeLeft]);
 
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   const switchMode = (newMode: TimerMode) => {
     setMode(newMode);
     setIsActive(false);
@@ -57,8 +67,16 @@ const ZenArea: React.FC = () => {
     setTimeLeft(TIMER_MODES[mode].minutes * 60);
   };
 
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current?.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error("Error toggling fullscreen:", err);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -73,13 +91,15 @@ const ZenArea: React.FC = () => {
 
   const CurrentIcon = TIMER_MODES[mode].icon;
 
-  // Layout classes based on fullscreen state
+  // Layout classes
+  // When in fullscreen API mode, the element becomes the root viewport.
+  // We need to ensure it has full width/height and background.
   const containerClasses = isFullscreen
-    ? "fixed inset-0 z-[100] bg-night-950 flex flex-col items-center justify-center p-6 space-y-12 transition-all duration-300 overflow-y-auto"
-    : "max-w-4xl mx-auto h-full flex flex-col items-center justify-center p-6 space-y-12 transition-all duration-300";
+    ? "w-full h-full bg-night-950 flex flex-col items-center justify-center p-6 space-y-12 overflow-y-auto"
+    : "max-w-4xl mx-auto h-full flex flex-col items-center justify-center p-6 space-y-12";
 
   return (
-    <div className={containerClasses}>
+    <div ref={containerRef} className={containerClasses}>
       
       {/* Pomodoro Section */}
       <div className="w-full max-w-md bg-night-900/50 border border-gray-800 rounded-2xl p-8 backdrop-blur-sm relative overflow-hidden group">
@@ -131,7 +151,7 @@ const ZenArea: React.FC = () => {
           <button 
             onClick={toggleFullscreen}
             className="p-4 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-all hover:scale-110 active:scale-95 border border-gray-700"
-            title={isFullscreen ? "Exit Focus Mode" : "Enter Focus Mode"}
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
           >
             {isFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
           </button>
