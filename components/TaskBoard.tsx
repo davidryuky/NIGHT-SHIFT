@@ -45,7 +45,6 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onUpdateTask, onDeleteTask
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [viewingTask, setViewingTask] = useState<Task | null>(null);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
-  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   
   const handleAddNew = (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,18 +63,6 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onUpdateTask, onDeleteTask
     const currentIndex = priorities.indexOf(task.priority);
     const nextIndex = (currentIndex + 1) % priorities.length;
     onUpdateTask({ ...task, priority: priorities[nextIndex] });
-  };
-
-  const toggleExpansion = (taskId: string) => {
-    setExpandedTaskIds(prev => {
-      const next = new Set(prev);
-      if (next.has(taskId)) {
-        next.delete(taskId);
-      } else {
-        next.add(taskId);
-      }
-      return next;
-    });
   };
 
   const getPriorityColor = (p: Priority) => {
@@ -184,16 +171,11 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onUpdateTask, onDeleteTask
                 
                 <div className="md:flex-1 md:overflow-y-auto p-3 space-y-3 custom-scrollbar">
                   {columnTasks.map(task => {
-                    const isExpanded = expandedTaskIds.has(task.id);
                     return (
                       <div 
                         key={task.id}
                         draggable={true}
                         onDragStart={(e) => handleDragStart(e, task.id)}
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          toggleExpansion(task.id);
-                        }}
                         className="group bg-night-800 border border-gray-700 p-4 rounded hover:border-gray-500 transition-all shadow-sm relative cursor-grab active:cursor-grabbing hover:bg-night-800/80 w-full select-none"
                       >
                         
@@ -232,10 +214,9 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onUpdateTask, onDeleteTask
                               <h4 className="text-gray-200 font-medium mb-1 leading-snug truncate">{task.title}</h4>
                               {task.description && (
                                 <p 
-                                  className={`text-xs text-gray-500 mb-3 font-mono break-words w-full transition-all duration-200 ${isExpanded ? '' : 'line-clamp-2'}`}
-                                  title={!isExpanded ? "Double click to expand" : ""}
+                                  className="text-xs text-gray-500 mb-3 font-mono break-words w-full line-clamp-2"
                                 >
-                                  {isExpanded ? task.description : (task.description.length > 140 ? task.description.slice(0, 140) + '...' : task.description)}
+                                  {task.description.length > 140 ? task.description.slice(0, 140) + '...' : task.description}
                                 </p>
                               )}
                            </div>

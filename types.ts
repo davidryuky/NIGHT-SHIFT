@@ -22,7 +22,18 @@ export interface Task {
   tags: string[];
 }
 
+export interface Note {
+  id: string;
+  content: string;
+  tags: string[];
+  color: string;
+  createdAt: number;
+  x?: number; // For future absolute positioning if needed
+  y?: number;
+}
+
 export interface AppState {
   tasks: Task[];
+  notes: Note[];
   lastSaved: number;
 }

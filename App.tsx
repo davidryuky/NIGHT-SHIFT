@@ -1,28 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { Task, TaskStatus, Priority } from './types';
+import { Task, TaskStatus, Priority, Note } from './types';
 import * as storage from './services/storageService';
 import TaskBoard from './components/TaskBoard';
 import Stats from './components/Stats';
 import ZenArea from './components/ZenArea';
+import NotesArea from './components/NotesArea';
 import Clock from './components/Clock';
-import { Moon, Cpu, Layout, Terminal, PanelLeft, Menu, X, Coffee } from 'lucide-react';
+import { Moon, Cpu, Layout, Settings, PanelLeft, Menu, X, Coffee, StickyNote, Download, Upload, Database } from 'lucide-react';
 
 const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [activeTab, setActiveTab] = useState<'board' | 'stats' | 'zen'>('board');
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [activeTab, setActiveTab] = useState<'board' | 'stats' | 'zen' | 'notes' | 'config'>('board');
   const [fileError, setFileError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Desktop state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Mobile state
 
   useEffect(() => {
     const loaded = storage.loadFromLocal();
-    setTasks(loaded);
+    setTasks(loaded.tasks);
+    setNotes(loaded.notes);
   }, []);
 
   useEffect(() => {
-    storage.saveToLocal(tasks);
-  }, [tasks]);
+    storage.saveToLocal(tasks, notes);
+  }, [tasks, notes]);
 
+  // --- Task Handlers ---
   const handleAddTask = (partialTask: Partial<Task>) => {
     const newTask: Task = {
       id: crypto.randomUUID(),
@@ -45,8 +49,39 @@ const App: React.FC = () => {
     setTasks(prev => prev.filter(t => t.id !== id));
   };
 
+  // --- Note Handlers ---
+  const handleAddNote = () => {
+    const newNote: Note = {
+      id: crypto.randomUUID(),
+      content: '',
+      tags: [],
+      color: 'neutral',
+      createdAt: Date.now(),
+    };
+    // Add to beginning of list
+    setNotes(prev => [newNote, ...prev]);
+  };
+
+  const handleUpdateNote = (updatedNote: Note) => {
+    setNotes(prev => prev.map(n => n.id === updatedNote.id ? updatedNote : n));
+  };
+
+  const handleDeleteNote = (id: string) => {
+    setNotes(prev => prev.filter(n => n.id !== id));
+  };
+
+  const handleReorderNotes = (startIndex: number, endIndex: number) => {
+    setNotes(prev => {
+      const result = Array.from(prev);
+      const [removed] = result.splice(startIndex, 1);
+      result.splice(endIndex, 0, removed);
+      return result;
+    });
+  };
+
+  // --- Data Handlers ---
   const handleExport = () => {
-    storage.exportToJson(tasks);
+    storage.exportToJson(tasks, notes);
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -54,8 +89,9 @@ const App: React.FC = () => {
     if (!file) return;
     try {
       setFileError(null);
-      const importedTasks = await storage.importFromJson(file);
-      setTasks(importedTasks);
+      const importedData = await storage.importFromJson(file);
+      setTasks(importedData.tasks);
+      setNotes(importedData.notes);
       // Reset input
       e.target.value = '';
       if (window.innerWidth < 768) setIsMobileMenuOpen(false); // Close mobile menu after import
@@ -74,7 +110,7 @@ const App: React.FC = () => {
               <Moon className="text-neon-blue" size={20} />
               <span>NIGHT_SHIFT</span>
             </h1>
-            <p className="text-[10px] text-gray-500 mt-2 font-mono">v1.2.0 // SYSTEM_ACTIVE</p>
+            <p className="text-[10px] text-gray-500 mt-2 font-mono">v1.3.1 // SYSTEM_ACTIVE</p>
           </div>
           {/* Mobile Close Button */}
           <button 
@@ -93,6 +129,15 @@ const App: React.FC = () => {
             <Layout size={18} />
             <span className="font-medium tracking-wide">Work Board</span>
           </button>
+          
+          <button 
+            onClick={() => { setActiveTab('notes'); setIsMobileMenuOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded transition-all ${activeTab === 'notes' ? 'bg-gray-800 text-white border-l-2 border-neon-blue' : 'text-gray-500 hover:text-white hover:bg-gray-800/50'}`}
+          >
+            <StickyNote size={18} />
+            <span className="font-medium tracking-wide">Notepad</span>
+          </button>
+
           <button 
             onClick={() => { setActiveTab('stats'); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded transition-all ${activeTab === 'stats' ? 'bg-gray-800 text-white border-l-2 border-neon-purple' : 'text-gray-500 hover:text-white hover:bg-gray-800/50'}`}
@@ -102,44 +147,28 @@ const App: React.FC = () => {
           </button>
           <button 
             onClick={() => { setActiveTab('zen'); setIsMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded transition-all ${activeTab === 'zen' ? 'bg-gray-800 text-white border-l-2 border-neon-blue' : 'text-gray-500 hover:text-white hover:bg-gray-800/50'}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded transition-all ${activeTab === 'zen' ? 'bg-gray-800 text-white border-l-2 border-neon-red' : 'text-gray-500 hover:text-white hover:bg-gray-800/50'}`}
           >
             <Coffee size={18} />
             <span className="font-medium tracking-wide">Zen Area</span>
           </button>
+
+          <div className="pt-4 mt-4 border-t border-gray-800/50">
+            <button 
+              onClick={() => { setActiveTab('config'); setIsMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded transition-all ${activeTab === 'config' ? 'bg-gray-800 text-white border-l-2 border-gray-400' : 'text-gray-500 hover:text-white hover:bg-gray-800/50'}`}
+            >
+              <Settings size={18} />
+              <span className="font-medium tracking-wide">Config</span>
+            </button>
+          </div>
         </nav>
       </div>
 
-      <div className="w-full shrink-0 p-6 border-t border-gray-800 space-y-4">
-          <div className="space-y-2 w-full">
-            <label className="flex items-center gap-2 text-xs text-gray-500 uppercase font-mono tracking-widest mb-2">
-              <Terminal size={12} /> Data Sync
-            </label>
-            
-            <div className="flex gap-2">
-              <button 
-                onClick={handleExport}
-                className="flex-1 flex items-center justify-center px-3 py-2 bg-gray-900 border border-gray-700 hover:border-neon-blue text-xs text-gray-300 rounded transition-colors font-mono hover:text-white"
-              >
-                EXPORT
-              </button>
-              
-              <div className="relative flex-1">
-                <input 
-                  type="file" 
-                  accept=".json"
-                  onChange={handleImport}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-                <button 
-                  className="w-full flex items-center justify-center px-3 py-2 bg-gray-900 border border-gray-700 hover:border-neon-red text-xs text-gray-300 rounded transition-colors font-mono hover:text-white"
-                >
-                  IMPORT
-                </button>
-              </div>
-            </div>
-            {fileError && <p className="text-neon-red text-[10px]">{fileError}</p>}
-          </div>
+      <div className="w-full shrink-0 p-6 border-t border-gray-800">
+          <p className="text-xs text-gray-600 font-mono text-center opacity-70 hover:opacity-100 transition-opacity">
+            Dev By: <span className="text-neon-blue">@Davi.develop</span>
+          </p>
       </div>
     </>
   );
@@ -191,8 +220,11 @@ const App: React.FC = () => {
              </button>
 
              <div className="h-4 w-px bg-gray-700 hidden md:block"></div>
-             <span className="text-sm text-gray-400 font-mono truncate">
-               {activeTab === 'board' ? 'TASKS_OVERVIEW' : activeTab === 'stats' ? 'SYSTEM_ANALYTICS' : 'ZEN_MODE_ACTIVE'}
+             <span className="text-sm text-gray-400 font-mono truncate uppercase">
+               {activeTab === 'board' ? 'TASKS_OVERVIEW' : 
+                activeTab === 'notes' ? 'DEV_SCRATCHPAD' : 
+                activeTab === 'stats' ? 'SYSTEM_ANALYTICS' : 
+                activeTab === 'config' ? 'SYSTEM_CONFIG' : 'ZEN_MODE_ACTIVE'}
              </span>
           </div>
           <Clock />
@@ -206,6 +238,16 @@ const App: React.FC = () => {
               onAddTask={handleAddTask}
               onUpdateTask={handleUpdateTask}
               onDeleteTask={handleDeleteTask}
+             />
+           )}
+           
+           {activeTab === 'notes' && (
+             <NotesArea 
+               notes={notes}
+               onAddNote={handleAddNote}
+               onUpdateNote={handleUpdateNote}
+               onDeleteNote={handleDeleteNote}
+               onReorderNotes={handleReorderNotes}
              />
            )}
            
@@ -227,6 +269,70 @@ const App: React.FC = () => {
            )}
 
            {activeTab === 'zen' && <ZenArea />}
+
+           {activeTab === 'config' && (
+             <div className="max-w-3xl mx-auto space-y-8 p-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                    <Settings className="text-gray-400" />
+                    System Configuration
+                  </h2>
+                  <p className="text-gray-500 mt-2 font-mono text-sm">Manage your local data and system preferences.</p>
+                </div>
+
+                <div className="bg-night-900 border border-gray-800 rounded-lg p-6 space-y-6">
+                  <div className="flex items-center gap-3 border-b border-gray-800 pb-4">
+                    <Database className="text-neon-blue" size={20} />
+                    <h3 className="font-bold text-white">Data Management</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Export Section */}
+                    <div className="space-y-3">
+                      <label className="text-xs text-gray-400 uppercase font-mono tracking-wider">Backup Data</label>
+                      <button 
+                        onClick={handleExport}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-6 bg-night-800 border border-gray-700 hover:border-neon-green hover:bg-night-800/80 text-gray-300 hover:text-white rounded-lg transition-all group"
+                      >
+                        <Download size={24} className="text-gray-500 group-hover:text-neon-green transition-colors" />
+                        <span className="font-mono">Export JSON</span>
+                      </button>
+                      <p className="text-[10px] text-gray-600">Download a local copy of all tasks and notes.</p>
+                    </div>
+
+                    {/* Import Section */}
+                    <div className="space-y-3">
+                      <label className="text-xs text-gray-400 uppercase font-mono tracking-wider">Restore Data</label>
+                      <div className="relative group w-full">
+                        <input 
+                          type="file" 
+                          accept=".json"
+                          onChange={handleImport}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                        />
+                        <button 
+                          className="w-full flex items-center justify-center gap-2 px-4 py-6 bg-night-800 border border-gray-700 group-hover:border-neon-red group-hover:bg-night-800/80 text-gray-300 group-hover:text-white rounded-lg transition-all"
+                        >
+                          <Upload size={24} className="text-gray-500 group-hover:text-neon-red transition-colors" />
+                          <span className="font-mono">Import JSON</span>
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-gray-600">
+                        {fileError ? <span className="text-neon-red">{fileError}</span> : "Restore from a previously exported file."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-night-900 border border-gray-800 rounded-lg p-6">
+                   <div className="text-center space-y-2">
+                     <p className="text-xs font-mono text-gray-500 uppercase">Application Version</p>
+                     <p className="text-white font-bold">NIGHT_SHIFT v1.3.1</p>
+                     <p className="text-xs text-gray-600">Local Storage Only • No Cloud Sync</p>
+                   </div>
+                </div>
+             </div>
+           )}
         </div>
         
         {/* Overlay Gradients */}

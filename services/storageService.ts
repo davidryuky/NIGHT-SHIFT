@@ -1,29 +1,35 @@
-import { AppState, Task } from '../types';
+import { AppState, Task, Note } from '../types';
 
 const STORAGE_KEY = 'night_shift_db';
 
-export const saveToLocal = (tasks: Task[]): void => {
+export const saveToLocal = (tasks: Task[], notes: Note[]): void => {
   const state: AppState = {
     tasks,
+    notes,
     lastSaved: Date.now(),
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 };
 
-export const loadFromLocal = (): Task[] => {
+export const loadFromLocal = (): { tasks: Task[], notes: Note[] } => {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return [];
+  if (!raw) return { tasks: [], notes: [] };
   try {
     const state = JSON.parse(raw) as AppState;
-    return state.tasks || [];
+    // Handle migration/legacy where notes might not exist
+    return { 
+      tasks: state.tasks || [], 
+      notes: state.notes || [] 
+    };
   } catch (e) {
     console.error('Failed to load local data', e);
-    return [];
+    return { tasks: [], notes: [] };
   }
 };
 
-export const exportToJson = (tasks: Task[]): void => {
-  const dataStr = JSON.stringify(tasks, null, 2);
+export const exportToJson = (tasks: Task[], notes: Note[]): void => {
+  const exportData = { tasks, notes };
+  const dataStr = JSON.stringify(exportData, null, 2);
   const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
   
   const exportFileDefaultName = `night_shift_backup_${new Date().toISOString().slice(0,10)}.json`;
@@ -34,16 +40,23 @@ export const exportToJson = (tasks: Task[]): void => {
   linkElement.click();
 };
 
-export const importFromJson = (file: File): Promise<Task[]> => {
+export const importFromJson = (file: File): Promise<{ tasks: Task[], notes: Note[] }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
+        
+        // Support legacy import (array of tasks only) or new format (object)
         if (Array.isArray(json)) {
-          resolve(json as Task[]);
+          resolve({ tasks: json as Task[], notes: [] });
+        } else if (json.tasks || json.notes) {
+           resolve({ 
+             tasks: (json.tasks || []) as Task[], 
+             notes: (json.notes || []) as Note[] 
+           });
         } else {
-          reject(new Error("Invalid JSON format: Expected an array of tasks"));
+          reject(new Error("Invalid JSON format"));
         }
       } catch (error) {
         reject(error);
