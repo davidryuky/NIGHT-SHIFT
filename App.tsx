@@ -1,16 +1,51 @@
 import React, { useState, useEffect } from 'react';
-import { Task, TaskStatus, Priority, Note } from './types';
+import { Task, TaskStatus, Priority, Note, Theme } from './types';
 import * as storage from './services/storageService';
 import TaskBoard from './components/TaskBoard';
 import Stats from './components/Stats';
 import ZenArea from './components/ZenArea';
 import NotesArea from './components/NotesArea';
 import Clock from './components/Clock';
-import { Moon, Cpu, Layout, Settings, PanelLeft, Menu, X, Coffee, StickyNote, Download, Upload, Database } from 'lucide-react';
+import { Moon, Cpu, Layout, Settings, PanelLeft, Menu, X, Coffee, StickyNote, Download, Upload, Database, Palette, Check } from 'lucide-react';
+
+// Define theme color mappings
+const THEMES: Record<Theme, Record<string, string>> = {
+  cyberpunk: {
+    '--color-night-950': '#050505',
+    '--color-night-900': '#0a0a0c',
+    '--color-night-800': '#121214',
+    '--color-night-700': '#1c1c1f',
+    '--color-neon-green': '#00ff9d',
+    '--color-neon-purple': '#bd00ff',
+    '--color-neon-blue': '#00d0ff',
+    '--color-neon-red': '#ff003c',
+  },
+  dracula: {
+    '--color-night-950': '#0F111A', // Darker background
+    '--color-night-900': '#191B26',
+    '--color-night-800': '#232532',
+    '--color-night-700': '#2D2F3E',
+    '--color-neon-green': '#89DDFF', // Cyan-ish for success
+    '--color-neon-purple': '#C792EA', // Lavender
+    '--color-neon-blue': '#82AAFF', // Soft Blue
+    '--color-neon-red': '#F07178', // Soft Red
+  },
+  amber: {
+    '--color-night-950': '#120f0a', // Brownish black
+    '--color-night-900': '#1c1612',
+    '--color-night-800': '#2b211a',
+    '--color-night-700': '#3d2e24',
+    '--color-neon-green': '#f59e0b', // Amber-500
+    '--color-neon-purple': '#d97706', // Amber-600
+    '--color-neon-blue': '#fbbf24', // Amber-400
+    '--color-neon-red': '#ef4444', // Red stays red for error
+  }
+};
 
 const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [theme, setTheme] = useState<Theme>('cyberpunk');
   const [activeTab, setActiveTab] = useState<'board' | 'stats' | 'zen' | 'notes' | 'config'>('board');
   const [fileError, setFileError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Desktop state
@@ -20,11 +55,23 @@ const App: React.FC = () => {
     const loaded = storage.loadFromLocal();
     setTasks(loaded.tasks);
     setNotes(loaded.notes);
+    setTheme(loaded.theme);
   }, []);
 
   useEffect(() => {
-    storage.saveToLocal(tasks, notes);
-  }, [tasks, notes]);
+    storage.saveToLocal(tasks, notes, theme);
+  }, [tasks, notes, theme]);
+
+  // Apply Theme CSS Variables
+  useEffect(() => {
+    const root = document.documentElement;
+    const themeColors = THEMES[theme];
+    if (themeColors) {
+      Object.entries(themeColors).forEach(([key, value]) => {
+        root.style.setProperty(key, value);
+      });
+    }
+  }, [theme]);
 
   // --- Task Handlers ---
   const handleAddTask = (partialTask: Partial<Task>) => {
@@ -174,7 +221,7 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="flex h-screen bg-night-950 text-gray-300 font-sans selection:bg-neon-green/30 selection:text-white overflow-hidden">
+    <div className="flex h-screen bg-night-950 text-gray-300 font-sans selection:bg-neon-green/30 selection:text-white overflow-hidden transition-colors duration-500">
       
       {/* Mobile Backdrop */}
       {isMobileMenuOpen && (
@@ -231,7 +278,7 @@ const App: React.FC = () => {
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-hidden p-4 md:p-6 bg-night-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-900 via-night-950 to-night-950 relative z-0">
+        <div className="flex-1 overflow-hidden p-4 md:p-6 bg-night-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-night-800 via-night-950 to-night-950 relative z-0">
            {activeTab === 'board' && (
              <TaskBoard 
               tasks={tasks}
@@ -271,13 +318,62 @@ const App: React.FC = () => {
            {activeTab === 'zen' && <ZenArea />}
 
            {activeTab === 'config' && (
-             <div className="max-w-3xl mx-auto space-y-8 p-6">
+             <div className="max-w-3xl mx-auto space-y-8 p-6 overflow-y-auto h-full custom-scrollbar">
                 <div>
                   <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                     <Settings className="text-gray-400" />
                     System Configuration
                   </h2>
                   <p className="text-gray-500 mt-2 font-mono text-sm">Manage your local data and system preferences.</p>
+                </div>
+
+                {/* Theme Selection */}
+                <div className="bg-night-900 border border-gray-800 rounded-lg p-6 space-y-6">
+                  <div className="flex items-center gap-3 border-b border-gray-800 pb-4">
+                    <Palette className="text-neon-purple" size={20} />
+                    <h3 className="font-bold text-white">Interface Theme</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                     <button
+                      onClick={() => setTheme('cyberpunk')}
+                      className={`group relative p-4 rounded-lg border flex flex-col items-center gap-3 transition-all ${theme === 'cyberpunk' ? 'bg-night-800 border-neon-green shadow-[0_0_15px_rgba(0,255,157,0.1)]' : 'bg-night-800/50 border-gray-700 hover:bg-night-800 hover:border-gray-500'}`}
+                     >
+                       <div className="w-full h-12 rounded bg-[#050505] border border-gray-800 flex items-center justify-center gap-2 overflow-hidden">
+                          <div className="w-2 h-2 rounded-full bg-[#00ff9d]"></div>
+                          <div className="w-2 h-2 rounded-full bg-[#bd00ff]"></div>
+                          <div className="w-2 h-2 rounded-full bg-[#00d0ff]"></div>
+                       </div>
+                       <span className="font-mono text-sm text-gray-300 group-hover:text-white">NIGHT_SHIFT</span>
+                       {theme === 'cyberpunk' && <div className="absolute top-2 right-2 text-neon-green"><Check size={14} /></div>}
+                     </button>
+
+                     <button
+                      onClick={() => setTheme('dracula')}
+                      className={`group relative p-4 rounded-lg border flex flex-col items-center gap-3 transition-all ${theme === 'dracula' ? 'bg-[#191B26] border-neon-purple shadow-[0_0_15px_rgba(189,147,249,0.1)]' : 'bg-[#191B26]/50 border-gray-700 hover:bg-[#191B26] hover:border-gray-500'}`}
+                     >
+                       <div className="w-full h-12 rounded bg-[#0F111A] border border-gray-700 flex items-center justify-center gap-2 overflow-hidden">
+                          <div className="w-2 h-2 rounded-full bg-[#89DDFF]"></div>
+                          <div className="w-2 h-2 rounded-full bg-[#C792EA]"></div>
+                          <div className="w-2 h-2 rounded-full bg-[#F07178]"></div>
+                       </div>
+                       <span className="font-mono text-sm text-gray-300 group-hover:text-white">DRACULA_VIBE</span>
+                       {theme === 'dracula' && <div className="absolute top-2 right-2 text-neon-purple"><Check size={14} /></div>}
+                     </button>
+
+                     <button
+                      onClick={() => setTheme('amber')}
+                      className={`group relative p-4 rounded-lg border flex flex-col items-center gap-3 transition-all ${theme === 'amber' ? 'bg-[#1c1612] border-neon-green shadow-[0_0_15px_rgba(245,158,11,0.1)]' : 'bg-[#1c1612]/50 border-gray-700 hover:bg-[#1c1612] hover:border-gray-500'}`}
+                     >
+                       <div className="w-full h-12 rounded bg-[#120f0a] border border-[#2b211a] flex items-center justify-center gap-2 overflow-hidden">
+                          <div className="w-2 h-2 rounded-full bg-[#f59e0b]"></div>
+                          <div className="w-2 h-2 rounded-full bg-[#d97706]"></div>
+                          <div className="w-2 h-2 rounded-full bg-[#fbbf24]"></div>
+                       </div>
+                       <span className="font-mono text-sm text-gray-300 group-hover:text-white">RETRO_AMBER</span>
+                       {theme === 'amber' && <div className="absolute top-2 right-2 text-neon-green"><Check size={14} /></div>}
+                     </button>
+                  </div>
                 </div>
 
                 <div className="bg-night-900 border border-gray-800 rounded-lg p-6 space-y-6">

@@ -19,16 +19,16 @@
             },
             colors: {
               night: {
-                950: '#050505',
-                900: '#0a0a0c',
-                800: '#121214',
-                700: '#1c1c1f',
+                950: 'var(--color-night-950)',
+                900: 'var(--color-night-900)',
+                800: 'var(--color-night-800)',
+                700: 'var(--color-night-700)',
               },
               neon: {
-                green: '#00ff9d',
-                purple: '#bd00ff',
-                blue: '#00d0ff',
-                red: '#ff003c',
+                green: 'var(--color-neon-green)',
+                purple: 'var(--color-neon-purple)',
+                blue: 'var(--color-neon-blue)',
+                red: 'var(--color-neon-red)',
               }
             }
           }
@@ -36,8 +36,20 @@
       }
     </script>
     <style>
+      :root {
+        /* Default Theme: NIGHT_SHIFT (Cyberpunk) */
+        --color-night-950: #050505;
+        --color-night-900: #0a0a0c;
+        --color-night-800: #121214;
+        --color-night-700: #1c1c1f;
+        --color-neon-green: #00ff9d;
+        --color-neon-purple: #bd00ff;
+        --color-neon-blue: #00d0ff;
+        --color-neon-red: #ff003c;
+      }
+
       body {
-        background-color: #050505;
+        background-color: var(--color-night-950);
         color: #e5e5e5;
       }
       ::-webkit-scrollbar {
@@ -45,7 +57,7 @@
         height: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: #0a0a0c; 
+        background: var(--color-night-900); 
       }
       ::-webkit-scrollbar-thumb {
         background: #333; 

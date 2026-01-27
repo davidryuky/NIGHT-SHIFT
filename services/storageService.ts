@@ -1,29 +1,31 @@
-import { AppState, Task, Note } from '../types';
+import { AppState, Task, Note, Theme } from '../types';
 
 const STORAGE_KEY = 'night_shift_db';
 
-export const saveToLocal = (tasks: Task[], notes: Note[]): void => {
+export const saveToLocal = (tasks: Task[], notes: Note[], theme: Theme): void => {
   const state: AppState = {
     tasks,
     notes,
+    theme,
     lastSaved: Date.now(),
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 };
 
-export const loadFromLocal = (): { tasks: Task[], notes: Note[] } => {
+export const loadFromLocal = (): { tasks: Task[], notes: Note[], theme: Theme } => {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return { tasks: [], notes: [] };
+  if (!raw) return { tasks: [], notes: [], theme: 'cyberpunk' };
   try {
     const state = JSON.parse(raw) as AppState;
-    // Handle migration/legacy where notes might not exist
+    // Handle migration/legacy where notes/theme might not exist
     return { 
       tasks: state.tasks || [], 
-      notes: state.notes || [] 
+      notes: state.notes || [],
+      theme: state.theme || 'cyberpunk'
     };
   } catch (e) {
     console.error('Failed to load local data', e);
-    return { tasks: [], notes: [] };
+    return { tasks: [], notes: [], theme: 'cyberpunk' };
   }
 };
 

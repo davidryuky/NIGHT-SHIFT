@@ -32,8 +32,11 @@ export interface Note {
   y?: number;
 }
 
+export type Theme = 'cyberpunk' | 'dracula' | 'amber';
+
 export interface AppState {
   tasks: Task[];
   notes: Note[];
+  theme: Theme;
   lastSaved: number;
 }
