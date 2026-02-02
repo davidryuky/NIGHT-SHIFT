@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Task, TaskStatus, Priority, Note, Theme, PomodoroSession, AppState, CaffeineEntry, CodeSnippet } from './types';
 import * as storage from './services/storageService';
@@ -214,11 +213,11 @@ const App: React.FC = () => {
       }));
     } catch (err) {
       console.error("Random background fetch failed:", err);
-      // Fallback
+      // Fallback a lofi image from another service if the primary repo fails
       setBgConfig(prev => ({
         ...prev,
         type: 'image',
-        url: 'https://picsum.photos/1920/1080?grayscale'
+        url: 'https://loremflickr.com/1920/1080/lofi'
       }));
     }
   };
@@ -295,6 +294,7 @@ const App: React.FC = () => {
               loop 
               muted 
               playsInline
+              key={bgConfig.url}
               className="w-full h-full object-cover"
               style={{ 
                 opacity: bgConfig.opacity,

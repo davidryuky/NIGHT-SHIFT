@@ -18,7 +18,7 @@ const Clock: React.FC = () => {
   };
 
   return (
-    <div className="font-mono text-neon-green text-xl md:text-2xl tracking-widest drop-shadow-[0_0_5px_rgba(0,255,157,0.5)]">
+    <div className="font-mono text-neon-green text-xl md:text-2xl tracking-widest opacity-80 drop-shadow-[0_0_2px_rgba(128,128,128,0.2)]">
       {formatTime(time)}
     </div>
   );
