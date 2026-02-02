@@ -8,10 +8,9 @@ interface StatsProps {
 }
 
 const FocusHeatmap: React.FC<{ sessions: PomodoroSession[] }> = ({ sessions }) => {
-  // Generate last 6 months of data for a Github-style heatmap
+  // Gera os últimos 180 dias para o mapa de calor
   const now = new Date();
-  const weeksToShow = 26; // ~6 months
-  const totalDays = weeksToShow * 7;
+  const totalDays = 180;
   
   const daysMap: Record<string, number> = {};
   sessions.forEach(s => {
@@ -30,45 +29,51 @@ const FocusHeatmap: React.FC<{ sessions: PomodoroSession[] }> = ({ sessions }) =
     });
   }
 
-  const getHeatColor = (value: number) => {
-    if (value === 0) return 'bg-white/5';
-    if (value < 25) return 'bg-gray-700';
-    if (value < 60) return 'bg-gray-500';
-    if (value < 120) return 'bg-gray-300';
-    return 'bg-white';
+  // Define a opacidade baseada no nível de foco, usando a cor neon principal do tema
+  const getHeatStyle = (value: number) => {
+    if (value === 0) return { backgroundColor: 'var(--color-neon-blue)', opacity: 0.05 };
+    if (value < 25) return { backgroundColor: 'var(--color-neon-green)', opacity: 0.2 };
+    if (value < 60) return { backgroundColor: 'var(--color-neon-green)', opacity: 0.4 };
+    if (value < 120) return { backgroundColor: 'var(--color-neon-green)', opacity: 0.7 };
+    return { backgroundColor: 'var(--color-neon-green)', opacity: 1 };
   };
 
   return (
-    <div className="bg-night-900 border border-gray-800 rounded-lg p-5 flex flex-col w-full overflow-hidden">
-      <h3 className="text-gray-400 text-[10px] font-mono mb-4 uppercase tracking-[0.2em]">Focus_Heatmap (Last 180 Days)</h3>
+    <div className="bg-night-900/60 border border-gray-800 rounded-lg p-5 flex flex-col w-full overflow-hidden backdrop-blur-sm">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-gray-400 text-[10px] font-mono uppercase tracking-[0.2em]">Focus_Heatmap (Last 180 Days)</h3>
+        <div className="flex items-center gap-2 text-[8px] font-mono text-gray-500 uppercase">
+          <span>Less</span>
+          <div className="w-2 h-2 rounded-[1px]" style={{ backgroundColor: 'var(--color-neon-green)', opacity: 0.1 }} />
+          <div className="w-2 h-2 rounded-[1px]" style={{ backgroundColor: 'var(--color-neon-green)', opacity: 0.3 }} />
+          <div className="w-2 h-2 rounded-[1px]" style={{ backgroundColor: 'var(--color-neon-green)', opacity: 0.5 }} />
+          <div className="w-2 h-2 rounded-[1px]" style={{ backgroundColor: 'var(--color-neon-green)', opacity: 0.7 }} />
+          <div className="w-2 h-2 rounded-[1px]" style={{ backgroundColor: 'var(--color-neon-green)', opacity: 1 }} />
+          <span>More</span>
+        </div>
+      </div>
+      
       <div className="flex flex-wrap gap-1 items-start justify-start max-w-full">
         {heatmapData.map((day, idx) => (
           <div 
             key={idx}
             title={`${day.date}: ${day.value} min focus`}
-            className={`w-2.5 h-2.5 rounded-[1px] ${getHeatColor(day.value)} transition-all hover:ring-1 hover:ring-white/50 cursor-crosshair`}
+            style={getHeatStyle(day.value)}
+            className="w-2.5 h-2.5 rounded-[1px] transition-all hover:scale-125 cursor-crosshair hover:z-10"
           />
         ))}
-      </div>
-      <div className="mt-4 flex items-center justify-end gap-2 text-[8px] font-mono text-gray-600 uppercase">
-        <span>Less</span>
-        <div className="w-2 h-2 rounded-[1px] bg-white/5" />
-        <div className="w-2 h-2 rounded-[1px] bg-gray-700" />
-        <div className="w-2 h-2 rounded-[1px] bg-gray-500" />
-        <div className="w-2 h-2 rounded-[1px] bg-gray-300" />
-        <div className="w-2 h-2 rounded-[1px] bg-white" />
-        <span>More</span>
       </div>
     </div>
   );
 };
 
 const Stats: React.FC<StatsProps> = ({ tasks, pomodoroSessions }) => {
+  // Mapeamento de tarefas usando cores do tema
   const taskData = [
-    { name: 'Todo', value: tasks.filter(t => t.status === TaskStatus.TODO).length, color: '#444' },
-    { name: 'WIP', value: tasks.filter(t => t.status === TaskStatus.IN_PROGRESS).length, color: '#777' },
-    { name: 'Review', value: tasks.filter(t => t.status === TaskStatus.CODE_REVIEW).length, color: '#aaa' },
-    { name: 'Done', value: tasks.filter(t => t.status === TaskStatus.DONE).length, color: '#fff' },
+    { name: 'Todo', value: tasks.filter(t => t.status === TaskStatus.TODO).length, color: 'var(--color-night-700)' },
+    { name: 'WIP', value: tasks.filter(t => t.status === TaskStatus.IN_PROGRESS).length, color: 'var(--color-neon-blue)' },
+    { name: 'Review', value: tasks.filter(t => t.status === TaskStatus.CODE_REVIEW).length, color: 'var(--color-neon-purple)' },
+    { name: 'Done', value: tasks.filter(t => t.status === TaskStatus.DONE).length, color: 'var(--color-neon-green)' },
   ];
 
   const getLast7Days = () => {
@@ -99,22 +104,29 @@ const Stats: React.FC<StatsProps> = ({ tasks, pomodoroSessions }) => {
       <FocusHeatmap sessions={pomodoroSessions} />
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="h-64 bg-night-900 border border-gray-800 rounded-lg p-5 flex flex-col">
+        <div className="h-64 bg-night-900/60 border border-gray-800 rounded-lg p-5 flex flex-col backdrop-blur-sm">
           <h3 className="text-gray-400 text-[10px] font-mono mb-4 uppercase tracking-[0.2em]">Shift Distribution</h3>
           <div className="flex-1 min-h-0">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={taskData}>
                 <XAxis 
                   dataKey="name" 
-                  tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'JetBrains Mono' }} 
+                  tick={{ fill: '#666', fontSize: 10, fontFamily: 'JetBrains Mono' }} 
                   axisLine={false} 
                   tickLine={false}
                 />
                 <YAxis hide />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#020202', border: '1px solid #333', color: '#fff', fontSize: '10px' }}
+                  contentStyle={{ 
+                    backgroundColor: 'var(--color-night-950)', 
+                    border: '1px solid var(--color-night-700)', 
+                    borderRadius: '4px',
+                    color: '#fff', 
+                    fontSize: '10px', 
+                    fontFamily: 'JetBrains Mono' 
+                  }}
                   itemStyle={{ color: '#fff' }}
-                  cursor={{fill: 'rgba(255,255,255,0.02)'}}
+                  cursor={{fill: 'rgba(255,255,255,0.03)'}}
                 />
                 <Bar dataKey="value" radius={[2, 2, 0, 0]}>
                   {taskData.map((entry, index) => (
@@ -126,24 +138,31 @@ const Stats: React.FC<StatsProps> = ({ tasks, pomodoroSessions }) => {
           </div>
         </div>
 
-        <div className="h-64 bg-night-900 border border-gray-800 rounded-lg p-5 flex flex-col">
-          <h3 className="text-gray-400 text-[10px] font-mono mb-4 uppercase tracking-[0.2em]">Focus Velocity</h3>
+        <div className="h-64 bg-night-900/60 border border-gray-800 rounded-lg p-5 flex flex-col backdrop-blur-sm">
+          <h3 className="text-gray-400 text-[10px] font-mono mb-4 uppercase tracking-[0.2em]">Focus Velocity (Min/Day)</h3>
           <div className="flex-1 min-h-0">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={focusData}>
                 <XAxis 
                   dataKey="dateStr" 
-                  tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'JetBrains Mono' }} 
+                  tick={{ fill: '#666', fontSize: 10, fontFamily: 'JetBrains Mono' }} 
                   axisLine={false} 
                   tickLine={false}
                 />
                 <YAxis hide />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#020202', border: '1px solid #333', color: '#fff', fontSize: '10px' }}
+                  contentStyle={{ 
+                    backgroundColor: 'var(--color-night-950)', 
+                    border: '1px solid var(--color-night-700)', 
+                    borderRadius: '4px',
+                    color: '#fff', 
+                    fontSize: '10px', 
+                    fontFamily: 'JetBrains Mono' 
+                  }}
                   itemStyle={{ color: '#fff' }}
-                  cursor={{fill: 'rgba(255,255,255,0.02)'}}
+                  cursor={{fill: 'rgba(255,255,255,0.03)'}}
                 />
-                <Bar dataKey="minutes" fill="#888" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="minutes" fill="var(--color-neon-blue)" opacity={0.8} radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -10,7 +10,7 @@ import Clock from './components/Clock';
 import { 
   Moon, Cpu, Layout, Settings, PanelLeft, Menu, X, Coffee, StickyNote, 
   Download, Upload, Database, Palette, Check, Zap, Image as ImageIcon, 
-  RefreshCw, Globe, Sun, Terminal, Activity, ChevronRight, Code
+  RefreshCw, Globe, Sun, Terminal, Activity, ChevronRight, Code, Eye
 } from 'lucide-react';
 
 const THEMES: Record<Theme, Record<string, string>> = {
@@ -21,9 +21,9 @@ const THEMES: Record<Theme, Record<string, string>> = {
     '--color-night-700': '#1a1a1a',
     '--color-neon-green': '#FFFFFF',
     '--color-neon-purple': '#555555',
-    '--color-neon-blue': '#333333', // Este cinza define a cor do radial glow
+    '--color-neon-blue': '#222222', // Glow acromático suave
     '--color-neon-red': '#ff0033',
-    '--text-main': '#e3e3e3',
+    '--text-main': '#d1d1d1',
   },
   cyberpunk: {
     '--color-night-950': '#050505',
@@ -182,7 +182,6 @@ const App: React.FC = () => {
     setSnippets(prev => [newSnippet, ...prev]);
   };
 
-  // Fix: Added fetchRandomBg to provide dynamic backgrounds
   const fetchRandomBg = () => {
     const randomId = Math.floor(Math.random() * 10000);
     setBgConfig(prev => ({ 
@@ -191,7 +190,6 @@ const App: React.FC = () => {
     }));
   };
 
-  // Fix: Added handleImport to handle JSON backup files
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -200,7 +198,7 @@ const App: React.FC = () => {
       if (imported.tasks) setTasks(imported.tasks);
       if (imported.notes) setNotes(imported.notes);
       if (imported.snippets) setSnippets(imported.snippets);
-      if (imported.theme) setTheme(imported.theme);
+      if (imported.theme) setTheme(imported.theme as Theme);
       if (imported.pomodoroSessions) setPomodoroSessions(imported.pomodoroSessions);
       if (imported.backgroundConfig) setBgConfig(imported.backgroundConfig);
       if (imported.caffeineLog) setCaffeineLog(imported.caffeineLog);
@@ -328,7 +326,7 @@ const App: React.FC = () => {
            {activeTab === 'snippets' && <SnippetVault snippets={snippets} onAddSnippet={handleAddSnippet} onUpdateSnippet={s => setSnippets(prev => prev.map(old => old.id === s.id ? s : old))} onDeleteSnippet={id => setSnippets(prev => prev.filter(s => s.id !== id))} />}
            {activeTab === 'stats' && (
              <div className="max-w-4xl mx-auto space-y-6 overflow-y-auto h-full pr-2 custom-scrollbar pb-10">
-               <h2 className="text-2xl font-bold text-[var(--text-main)]">Productivity Metrics</h2>
+               <h2 className="text-2xl font-bold text-[var(--text-main)] tracking-tight">System Metrics</h2>
                <Stats tasks={tasks} pomodoroSessions={pomodoroSessions} />
                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                  <div className="p-4 bg-night-900/60 backdrop-blur-md rounded border border-gray-800">
@@ -352,6 +350,8 @@ const App: React.FC = () => {
            {activeTab === 'zen' && <ZenArea onSessionComplete={m => setPomodoroSessions(prev => [...prev, { id: crypto.randomUUID(), timestamp: Date.now(), durationMinutes: m }])} />}
            {activeTab === 'config' && (
              <div className="max-w-3xl mx-auto space-y-8 p-6 overflow-y-auto h-full custom-scrollbar pb-20">
+                
+                {/* Tools Section */}
                 <div className="bg-night-900/60 backdrop-blur-md border border-gray-800 rounded-lg p-6 space-y-6">
                   <div className="flex items-center gap-3 border-b border-gray-800 pb-4"><Terminal className="text-gray-400" size={20} /><h3 className="font-bold text-[var(--text-main)] uppercase tracking-widest text-sm">System Tools</h3></div>
                   <div className="space-y-4">
@@ -375,6 +375,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Theme Section */}
                 <div className="bg-night-900/60 backdrop-blur-md border border-gray-800 rounded-lg p-6 space-y-6">
                   <div className="flex items-center gap-3 border-b border-gray-800 pb-4"><Palette className="text-gray-400" size={20} /><h3 className="font-bold text-[var(--text-main)] uppercase tracking-widest text-sm">Interface Theme</h3></div>
                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
@@ -397,6 +398,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Background Customizer with BLUR restored */}
                 <div className="bg-night-900/60 backdrop-blur-md border border-gray-800 rounded-lg p-6 space-y-6">
                   <div className="flex items-center gap-3 border-b border-gray-800 pb-4"><ImageIcon className="text-gray-400" size={20} /><h3 className="font-bold text-[var(--text-main)] uppercase tracking-widest text-sm">Background Customizer</h3></div>
                   <div className="space-y-4">
@@ -411,7 +413,7 @@ const App: React.FC = () => {
                       </div>
                     </div>
                     
-                    <div className="pt-4 border-t border-gray-800/50 space-y-4">
+                    <div className="pt-4 border-t border-gray-800/50 space-y-6">
                       <div className="flex items-center justify-between p-3 bg-night-800/30 border border-gray-700 rounded-lg">
                         <div className="flex items-center gap-3">
                           <Sun size={18} className={bgConfig.showRadialGradient ? "text-white" : "text-gray-600"} />
@@ -428,9 +430,16 @@ const App: React.FC = () => {
                         </button>
                       </div>
 
-                      <div className="flex flex-col gap-2">
-                        <div className="flex justify-between text-[10px] font-mono uppercase text-gray-500"><span>Opacity</span><span>{Math.round(bgConfig.opacity * 100)}%</span></div>
-                        <input type="range" min="0" max="1" step="0.01" value={bgConfig.opacity} onChange={e => setBgConfig(prev => ({ ...prev, opacity: parseFloat(e.target.value) }))} className="w-full h-1 bg-night-800 rounded-lg appearance-none cursor-pointer accent-white" />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex justify-between text-[10px] font-mono uppercase text-gray-500"><span>Opacity</span><span>{Math.round(bgConfig.opacity * 100)}%</span></div>
+                          <input type="range" min="0" max="1" step="0.01" value={bgConfig.opacity} onChange={e => setBgConfig(prev => ({ ...prev, opacity: parseFloat(e.target.value) }))} className="w-full h-1 bg-night-800 rounded-lg appearance-none cursor-pointer accent-white" />
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                          <div className="flex justify-between text-[10px] font-mono uppercase text-gray-500"><span>Blur Effect</span><span>{Math.round(bgConfig.blur)}px</span></div>
+                          <input type="range" min="0" max="20" step="1" value={bgConfig.blur} onChange={e => setBgConfig(prev => ({ ...prev, blur: parseInt(e.target.value) }))} className="w-full h-1 bg-night-800 rounded-lg appearance-none cursor-pointer accent-white" />
+                        </div>
                       </div>
                     </div>
                   </div>
