@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Task, TaskStatus, Priority, Note, Theme } from './types';
+import { Task, TaskStatus, Priority, Note, Theme, PomodoroSession, AppState } from './types';
 import * as storage from './services/storageService';
 import TaskBoard from './components/TaskBoard';
 import Stats from './components/Stats';
 import ZenArea from './components/ZenArea';
 import NotesArea from './components/NotesArea';
 import Clock from './components/Clock';
-import { Moon, Cpu, Layout, Settings, PanelLeft, Menu, X, Coffee, StickyNote, Download, Upload, Database, Palette, Check } from 'lucide-react';
+import { 
+  Moon, Cpu, Layout, Settings, PanelLeft, Menu, X, Coffee, StickyNote, 
+  Download, Upload, Database, Palette, Check, Zap, Image as ImageIcon, 
+  RefreshCw, Globe, Sun
+} from 'lucide-react';
 
-// Define theme color mappings
 const THEMES: Record<Theme, Record<string, string>> = {
   cyberpunk: {
     '--color-night-950': '#050505',
@@ -19,50 +22,88 @@ const THEMES: Record<Theme, Record<string, string>> = {
     '--color-neon-purple': '#bd00ff',
     '--color-neon-blue': '#00d0ff',
     '--color-neon-red': '#ff003c',
+    '--text-main': '#e5e5e5',
   },
   dracula: {
-    '--color-night-950': '#0F111A', // Darker background
+    '--color-night-950': '#0F111A',
     '--color-night-900': '#191B26',
     '--color-night-800': '#232532',
     '--color-night-700': '#2D2F3E',
-    '--color-neon-green': '#89DDFF', // Cyan-ish for success
-    '--color-neon-purple': '#C792EA', // Lavender
-    '--color-neon-blue': '#82AAFF', // Soft Blue
-    '--color-neon-red': '#F07178', // Soft Red
+    '--color-neon-green': '#89DDFF',
+    '--color-neon-purple': '#C792EA',
+    '--color-neon-blue': '#82AAFF',
+    '--color-neon-red': '#F07178',
+    '--text-main': '#e5e5e5',
   },
   amber: {
-    '--color-night-950': '#120f0a', // Brownish black
+    '--color-night-950': '#120f0a',
     '--color-night-900': '#1c1612',
     '--color-night-800': '#2b211a',
     '--color-night-700': '#3d2e24',
-    '--color-neon-green': '#f59e0b', // Amber-500
-    '--color-neon-purple': '#d97706', // Amber-600
-    '--color-neon-blue': '#fbbf24', // Amber-400
-    '--color-neon-red': '#ef4444', // Red stays red for error
+    '--color-neon-green': '#f59e0b',
+    '--color-neon-purple': '#d97706',
+    '--color-neon-blue': '#fbbf24',
+    '--color-neon-red': '#ef4444',
+    '--text-main': '#e5e5e5',
+  },
+  gamer: {
+    '--color-night-950': '#000000',
+    '--color-night-900': '#050505',
+    '--color-night-800': '#0a0a0a',
+    '--color-night-700': '#111111',
+    '--color-neon-green': '#39ff14',
+    '--color-neon-purple': '#ff00ff',
+    '--color-neon-blue': '#00ffff',
+    '--color-neon-red': '#ff0000',
+    '--text-main': '#ffffff',
+  },
+  paper: {
+    '--color-night-950': '#fcfaf2',
+    '--color-night-900': '#f5f2e8',
+    '--color-night-800': '#e8e4d5',
+    '--color-night-700': '#dcd7c5',
+    '--color-neon-green': '#2b2b2b',
+    '--color-neon-purple': '#5d5d5d',
+    '--color-neon-blue': '#4a6b8a',
+    '--color-neon-red': '#a63d40',
+    '--text-main': '#1a1a1a',
+  },
+  lofi: {
+    '--color-night-950': '#1a1c2c',
+    '--color-night-900': '#292b3d',
+    '--color-night-800': '#3e405a',
+    '--color-night-700': '#5a5e78',
+    '--color-neon-green': '#94e2d5',
+    '--color-neon-purple': '#cba6f7',
+    '--color-neon-blue': '#89b4fa',
+    '--color-neon-red': '#f38ba8',
+    '--text-main': '#cdd6f4',
   }
 };
 
 const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [pomodoroSessions, setPomodoroSessions] = useState<PomodoroSession[]>([]);
   const [theme, setTheme] = useState<Theme>('cyberpunk');
+  const [bgConfig, setBgConfig] = useState<AppState['backgroundConfig']>({ url: '', opacity: 0.3, blur: 0, showRadialGradient: true });
   const [activeTab, setActiveTab] = useState<'board' | 'stats' | 'zen' | 'notes' | 'config'>('board');
-  const [fileError, setFileError] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Desktop state
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Mobile state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const loaded = storage.loadFromLocal();
     setTasks(loaded.tasks);
     setNotes(loaded.notes);
     setTheme(loaded.theme);
+    setPomodoroSessions(loaded.pomodoroSessions);
+    setBgConfig(loaded.backgroundConfig);
   }, []);
 
   useEffect(() => {
-    storage.saveToLocal(tasks, notes, theme);
-  }, [tasks, notes, theme]);
+    storage.saveToLocal(tasks, notes, theme, pomodoroSessions, bgConfig);
+  }, [tasks, notes, theme, pomodoroSessions, bgConfig]);
 
-  // Apply Theme CSS Variables
   useEffect(() => {
     const root = document.documentElement;
     const themeColors = THEMES[theme];
@@ -70,10 +111,14 @@ const App: React.FC = () => {
       Object.entries(themeColors).forEach(([key, value]) => {
         root.style.setProperty(key, value);
       });
+      if (theme === 'paper') {
+        root.classList.remove('dark');
+      } else {
+        root.classList.add('dark');
+      }
     }
   }, [theme]);
 
-  // --- Task Handlers ---
   const handleAddTask = (partialTask: Partial<Task>) => {
     const newTask: Task = {
       id: crypto.randomUUID(),
@@ -96,343 +141,267 @@ const App: React.FC = () => {
     setTasks(prev => prev.filter(t => t.id !== id));
   };
 
-  // --- Note Handlers ---
-  const handleAddNote = () => {
-    const newNote: Note = {
-      id: crypto.randomUUID(),
-      content: '',
-      tags: [],
-      color: 'neutral',
-      createdAt: Date.now(),
-    };
-    // Add to beginning of list
-    setNotes(prev => [newNote, ...prev]);
-  };
-
   const handleUpdateNote = (updatedNote: Note) => {
     setNotes(prev => prev.map(n => n.id === updatedNote.id ? updatedNote : n));
   };
 
-  const handleDeleteNote = (id: string) => {
-    setNotes(prev => prev.filter(n => n.id !== id));
+  const handleSessionComplete = (durationMinutes: number) => {
+    const newSession: PomodoroSession = {
+      id: crypto.randomUUID(),
+      timestamp: Date.now(),
+      durationMinutes,
+    };
+    setPomodoroSessions(prev => [...prev, newSession]);
   };
 
-  const handleReorderNotes = (startIndex: number, endIndex: number) => {
-    setNotes(prev => {
-      const result = Array.from(prev);
-      const [removed] = result.splice(startIndex, 1);
-      result.splice(endIndex, 0, removed);
-      return result;
-    });
+  const fetchRandomBg = async () => {
+    try {
+      const randomId = Math.floor(Math.random() * 1000);
+      const url = `https://picsum.photos/seed/${randomId}/1920/1080?grayscale`;
+      setBgConfig(prev => ({ ...prev, url }));
+    } catch (err) {
+      console.error("Failed to fetch random wallpaper", err);
+    }
   };
 
-  // --- Data Handlers ---
-  const handleExport = () => {
-    storage.exportToJson(tasks, notes);
+  const handleBgFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setBgConfig(prev => ({ ...prev, url: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      setFileError(null);
-      const importedData = await storage.importFromJson(file);
-      setTasks(importedData.tasks);
-      setNotes(importedData.notes);
-      // Reset input
+      const imported = await storage.importFromJson(file);
+      if (imported.tasks) setTasks(imported.tasks);
+      if (imported.notes) setNotes(imported.notes);
+      if (imported.theme) setTheme(imported.theme as Theme);
+      if (imported.backgroundConfig) setBgConfig(imported.backgroundConfig);
       e.target.value = '';
-      if (window.innerWidth < 768) setIsMobileMenuOpen(false); // Close mobile menu after import
     } catch (err) {
-      setFileError('Invalid JSON file');
-      console.error(err);
+      alert('Invalid backup file.');
     }
   };
 
   const SidebarContent = () => (
-    <>
-      <div className="w-full shrink-0"> 
-        <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-          <div>
-            <h1 className="text-xl font-mono font-bold text-white tracking-tighter flex items-center gap-2">
-              <Moon className="text-neon-blue" size={20} />
-              <span>NIGHT_SHIFT</span>
-            </h1>
-            <p className="text-[10px] text-gray-500 mt-2 font-mono">v1.3.1 // SYSTEM_ACTIVE</p>
-          </div>
-          {/* Mobile Close Button */}
-          <button 
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="md:hidden text-gray-500 hover:text-white transition-colors"
-          >
-            <X size={20} />
-          </button>
+    <div className="w-72 flex flex-col h-full shrink-0">
+      <div className="p-6 border-b border-gray-800 flex justify-between items-center shrink-0">
+        <div>
+          <h1 className="text-xl font-mono font-bold text-[var(--text-main)] tracking-tighter flex items-center gap-2">
+            <Moon className="text-neon-blue" size={20} />
+            <span>NIGHT_SHIFT</span>
+          </h1>
+          <p className="text-[10px] text-gray-500 mt-2 font-mono uppercase tracking-widest">System Online</p>
         </div>
-        
-        <nav className="p-4 space-y-2">
-          <button 
-            onClick={() => { setActiveTab('board'); setIsMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded transition-all ${activeTab === 'board' ? 'bg-gray-800 text-white border-l-2 border-neon-green' : 'text-gray-500 hover:text-white hover:bg-gray-800/50'}`}
-          >
-            <Layout size={18} />
-            <span className="font-medium tracking-wide">Work Board</span>
-          </button>
-          
-          <button 
-            onClick={() => { setActiveTab('notes'); setIsMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded transition-all ${activeTab === 'notes' ? 'bg-gray-800 text-white border-l-2 border-neon-blue' : 'text-gray-500 hover:text-white hover:bg-gray-800/50'}`}
-          >
-            <StickyNote size={18} />
-            <span className="font-medium tracking-wide">Notepad</span>
-          </button>
-
-          <button 
-            onClick={() => { setActiveTab('stats'); setIsMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded transition-all ${activeTab === 'stats' ? 'bg-gray-800 text-white border-l-2 border-neon-purple' : 'text-gray-500 hover:text-white hover:bg-gray-800/50'}`}
-          >
-            <Cpu size={18} />
-            <span className="font-medium tracking-wide">Metrics</span>
-          </button>
-          <button 
-            onClick={() => { setActiveTab('zen'); setIsMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded transition-all ${activeTab === 'zen' ? 'bg-gray-800 text-white border-l-2 border-neon-red' : 'text-gray-500 hover:text-white hover:bg-gray-800/50'}`}
-          >
-            <Coffee size={18} />
-            <span className="font-medium tracking-wide">Zen Area</span>
-          </button>
-
-          <div className="pt-4 mt-4 border-t border-gray-800/50">
-            <button 
-              onClick={() => { setActiveTab('config'); setIsMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded transition-all ${activeTab === 'config' ? 'bg-gray-800 text-white border-l-2 border-gray-400' : 'text-gray-500 hover:text-white hover:bg-gray-800/50'}`}
-            >
-              <Settings size={18} />
-              <span className="font-medium tracking-wide">Config</span>
-            </button>
-          </div>
-        </nav>
+        <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-gray-500 hover:text-white transition-colors">
+          <X size={20} />
+        </button>
       </div>
+      
+      <nav className="p-4 space-y-2 flex-1 overflow-y-auto custom-scrollbar">
+        {[
+          { id: 'board', label: 'Work Board', icon: Layout, color: 'border-neon-green' },
+          { id: 'notes', label: 'Notepad', icon: StickyNote, color: 'border-neon-blue' },
+          { id: 'stats', label: 'Metrics', icon: Cpu, color: 'border-neon-purple' },
+          { id: 'zen', label: 'Zen Area', icon: Coffee, color: 'border-neon-red' },
+          { id: 'config', label: 'Config', icon: Settings, color: 'border-gray-400' },
+        ].map(tab => (
+          <button 
+            key={tab.id}
+            onClick={() => { setActiveTab(tab.id as any); setIsMobileMenuOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded transition-all ${activeTab === tab.id ? `bg-night-800 text-[var(--text-main)] border-l-2 ${tab.color}` : 'text-gray-500 hover:text-[var(--text-main)] hover:bg-night-800/50'}`}
+          >
+            <tab.icon size={18} />
+            <span className="font-medium tracking-wide">{tab.label}</span>
+          </button>
+        ))}
+      </nav>
 
-      <div className="w-full shrink-0 p-6 border-t border-gray-800">
-          <p className="text-xs text-gray-600 font-mono text-center opacity-70 hover:opacity-100 transition-opacity">
-            Dev By: <span className="text-neon-blue">@Davi.develop</span>
+      <div className="p-6 border-t border-gray-800 shrink-0">
+          <p className="text-xs text-gray-600 font-mono text-center opacity-70">
+            Dev: <span className="text-neon-blue">@Davi.develop</span>
           </p>
       </div>
-    </>
+    </div>
   );
 
   return (
-    <div className="flex h-screen bg-night-950 text-gray-300 font-sans selection:bg-neon-green/30 selection:text-white overflow-hidden transition-colors duration-500">
+    <div className={`flex h-screen bg-night-950 text-[var(--text-main)] font-sans selection:bg-neon-green/30 selection:text-white overflow-hidden transition-colors duration-500 relative`}>
       
-      {/* Mobile Backdrop */}
-      {isMobileMenuOpen && (
+      {/* 1. Background Image Layer */}
+      {bgConfig.url && (
         <div 
-          className="fixed inset-0 bg-black/80 z-40 md:hidden backdrop-blur-sm"
-          onClick={() => setIsMobileMenuOpen(false)}
+          className="fixed inset-0 pointer-events-none z-0 transition-all duration-700"
+          style={{ 
+            backgroundImage: `url(${bgConfig.url})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            opacity: bgConfig.opacity,
+            filter: `blur(${bgConfig.blur}px)`
+          }}
         />
       )}
 
-      {/* Sidebar (Responsive) */}
-      <aside 
-        className={`
-          fixed inset-y-0 left-0 z-50 bg-night-900 border-r border-gray-800 flex flex-col justify-between transition-all duration-300 ease-in-out overflow-hidden
-          w-72 
-          ${isMobileMenuOpen ? 'translate-x-0 shadow-2xl shadow-neon-green/10' : '-translate-x-full'}
-          md:relative md:translate-x-0 md:shadow-none
-          ${isSidebarOpen ? 'md:w-72' : 'md:w-0 md:border-r-0'}
-        `}
-      >
+      {/* 2. Ambient Radial Glow Layer - Fixed logic for toggle */}
+      <div 
+        className="fixed inset-0 pointer-events-none z-1 transition-all duration-1000"
+        style={{
+          background: `radial-gradient(circle at 50% -10%, var(--color-neon-blue) 0%, transparent 70%)`,
+          mixBlendMode: 'screen',
+          opacity: bgConfig.showRadialGradient ? 0.15 : 0
+        }}
+      />
+
+      {/* Mobile Backdrop */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 bg-black/80 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+      )}
+
+      {/* Sidebar Container */}
+      <aside className={`fixed inset-y-0 left-0 z-50 bg-night-900/90 md:bg-night-900/95 border-r border-gray-800 flex flex-col transition-all duration-300 backdrop-blur-sm overflow-hidden ${isMobileMenuOpen ? 'w-72 translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 ${isSidebarOpen ? 'md:w-72' : 'md:w-0 md:border-r-0'}`}>
         <SidebarContent />
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col h-full relative w-full">
-        {/* Top Header */}
-        <header className="h-16 border-b border-gray-800 bg-night-900/80 backdrop-blur flex items-center justify-between px-4 md:px-6 shrink-0 z-20 relative">
+      <main className="flex-1 flex flex-col h-full relative w-full z-10 bg-transparent min-w-0">
+        <header className="h-16 border-b border-gray-800 bg-night-900/40 backdrop-blur-md flex items-center justify-between px-4 md:px-6 shrink-0 z-20">
           <div className="flex items-center gap-4">
-             {/* Desktop Toggle */}
-             <button 
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="hidden md:flex p-2 -ml-2 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors"
-                title="Toggle Sidebar"
-             >
-               <PanelLeft size={20} />
-             </button>
-
-             {/* Mobile Menu Toggle */}
-             <button 
-                onClick={() => setIsMobileMenuOpen(true)}
-                className="md:hidden p-2 -ml-2 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors"
-             >
-               <Menu size={20} />
-             </button>
-
+             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="hidden md:flex p-2 hover:bg-gray-800 rounded transition-colors" title="Toggle Sidebar"><PanelLeft size={20} /></button>
+             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 hover:bg-gray-800 rounded"><Menu size={20} /></button>
              <div className="h-4 w-px bg-gray-700 hidden md:block"></div>
-             <span className="text-sm text-gray-400 font-mono truncate uppercase">
-               {activeTab === 'board' ? 'TASKS_OVERVIEW' : 
-                activeTab === 'notes' ? 'DEV_SCRATCHPAD' : 
-                activeTab === 'stats' ? 'SYSTEM_ANALYTICS' : 
-                activeTab === 'config' ? 'SYSTEM_CONFIG' : 'ZEN_MODE_ACTIVE'}
-             </span>
+             <span className="text-sm text-gray-400 font-mono truncate uppercase tracking-tighter">{activeTab}_SESSION</span>
           </div>
           <Clock />
         </header>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-hidden p-4 md:p-6 bg-night-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-night-800 via-night-950 to-night-950 relative z-0">
-           {activeTab === 'board' && (
-             <TaskBoard 
-              tasks={tasks}
-              onAddTask={handleAddTask}
-              onUpdateTask={handleUpdateTask}
-              onDeleteTask={handleDeleteTask}
-             />
-           )}
-           
-           {activeTab === 'notes' && (
-             <NotesArea 
-               notes={notes}
-               onAddNote={handleAddNote}
-               onUpdateNote={handleUpdateNote}
-               onDeleteNote={handleDeleteNote}
-               onReorderNotes={handleReorderNotes}
-             />
-           )}
-           
+        {/* 3. Main Content Wrapper */}
+        <div className="flex-1 overflow-hidden p-4 md:p-6 relative z-0">
+           {activeTab === 'board' && <TaskBoard tasks={tasks} onAddTask={handleAddTask} onUpdateTask={handleUpdateTask} onDeleteTask={handleDeleteTask} />}
+           {activeTab === 'notes' && <NotesArea notes={notes} onAddNote={() => setNotes(prev => [{ id: crypto.randomUUID(), content: '', tags: [], color: 'neutral', createdAt: Date.now() }, ...prev])} onUpdateNote={handleUpdateNote} onDeleteNote={(id) => setNotes(prev => prev.filter(n => n.id !== id))} onReorderNotes={(s, e) => setNotes(prev => { const r = Array.from(prev); const [rem] = r.splice(s, 1); r.splice(e, 0, rem); return r; })} />}
            {activeTab === 'stats' && (
-             <div className="max-w-4xl mx-auto space-y-6 overflow-y-auto h-full pr-2 custom-scrollbar">
-               <h2 className="text-2xl font-bold text-white">Productivity Metrics</h2>
-               <Stats tasks={tasks} />
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-night-800 rounded border border-gray-800">
-                    <h3 className="text-gray-400 font-mono text-xs uppercase mb-1">Pending</h3>
-                    <p className="text-3xl text-blue-400 font-mono">{tasks.filter(t => t.status === TaskStatus.TODO).length}</p>
-                  </div>
-                  <div className="p-4 bg-night-800 rounded border border-gray-800">
-                    <h3 className="text-gray-400 font-mono text-xs uppercase mb-1">Completed</h3>
-                    <p className="text-3xl text-neon-green font-mono">{tasks.filter(t => t.status === TaskStatus.DONE).length}</p>
-                  </div>
+             <div className="max-w-4xl mx-auto space-y-6 overflow-y-auto h-full pr-2 custom-scrollbar pb-10">
+               <h2 className="text-2xl font-bold text-[var(--text-main)]">Productivity Metrics</h2>
+               <Stats tasks={tasks} pomodoroSessions={pomodoroSessions} />
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                 <div className="p-4 bg-night-900/60 backdrop-blur-md rounded border border-gray-800">
+                    <h3 className="text-gray-400 font-mono text-[10px] uppercase mb-1">Tasks Pending</h3>
+                    <p className="text-2xl text-neon-blue font-mono">{tasks.filter(t => t.status !== TaskStatus.DONE).length}</p>
+                 </div>
+                 <div className="p-4 bg-night-900/60 backdrop-blur-md rounded border border-gray-800">
+                    <h3 className="text-gray-400 font-mono text-[10px] uppercase mb-1">Tasks Completed</h3>
+                    <p className="text-2xl text-neon-green font-mono">{tasks.filter(t => t.status === TaskStatus.DONE).length}</p>
+                 </div>
+                 <div className="p-4 bg-night-900/60 backdrop-blur-md rounded border border-gray-800 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-gray-400 font-mono text-[10px] uppercase mb-1">Total Focus</h3>
+                      <p className="text-2xl text-neon-purple font-mono">{pomodoroSessions.reduce((a, b) => a + b.durationMinutes, 0)} min</p>
+                    </div>
+                    <Zap className="text-neon-purple opacity-30" />
+                 </div>
                </div>
              </div>
            )}
-
-           {activeTab === 'zen' && <ZenArea />}
-
+           {activeTab === 'zen' && <ZenArea onSessionComplete={handleSessionComplete} />}
            {activeTab === 'config' && (
-             <div className="max-w-3xl mx-auto space-y-8 p-6 overflow-y-auto h-full custom-scrollbar">
-                <div>
-                  <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                    <Settings className="text-gray-400" />
-                    System Configuration
-                  </h2>
-                  <p className="text-gray-500 mt-2 font-mono text-sm">Manage your local data and system preferences.</p>
-                </div>
-
-                {/* Theme Selection */}
-                <div className="bg-night-900 border border-gray-800 rounded-lg p-6 space-y-6">
-                  <div className="flex items-center gap-3 border-b border-gray-800 pb-4">
-                    <Palette className="text-neon-purple" size={20} />
-                    <h3 className="font-bold text-white">Interface Theme</h3>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                     <button
-                      onClick={() => setTheme('cyberpunk')}
-                      className={`group relative p-4 rounded-lg border flex flex-col items-center gap-3 transition-all ${theme === 'cyberpunk' ? 'bg-night-800 border-neon-green shadow-[0_0_15px_rgba(0,255,157,0.1)]' : 'bg-night-800/50 border-gray-700 hover:bg-night-800 hover:border-gray-500'}`}
-                     >
-                       <div className="w-full h-12 rounded bg-[#050505] border border-gray-800 flex items-center justify-center gap-2 overflow-hidden">
-                          <div className="w-2 h-2 rounded-full bg-[#00ff9d]"></div>
-                          <div className="w-2 h-2 rounded-full bg-[#bd00ff]"></div>
-                          <div className="w-2 h-2 rounded-full bg-[#00d0ff]"></div>
-                       </div>
-                       <span className="font-mono text-sm text-gray-300 group-hover:text-white">NIGHT_SHIFT</span>
-                       {theme === 'cyberpunk' && <div className="absolute top-2 right-2 text-neon-green"><Check size={14} /></div>}
-                     </button>
-
-                     <button
-                      onClick={() => setTheme('dracula')}
-                      className={`group relative p-4 rounded-lg border flex flex-col items-center gap-3 transition-all ${theme === 'dracula' ? 'bg-[#191B26] border-neon-purple shadow-[0_0_15px_rgba(189,147,249,0.1)]' : 'bg-[#191B26]/50 border-gray-700 hover:bg-[#191B26] hover:border-gray-500'}`}
-                     >
-                       <div className="w-full h-12 rounded bg-[#0F111A] border border-gray-700 flex items-center justify-center gap-2 overflow-hidden">
-                          <div className="w-2 h-2 rounded-full bg-[#89DDFF]"></div>
-                          <div className="w-2 h-2 rounded-full bg-[#C792EA]"></div>
-                          <div className="w-2 h-2 rounded-full bg-[#F07178]"></div>
-                       </div>
-                       <span className="font-mono text-sm text-gray-300 group-hover:text-white">DRACULA_VIBE</span>
-                       {theme === 'dracula' && <div className="absolute top-2 right-2 text-neon-purple"><Check size={14} /></div>}
-                     </button>
-
-                     <button
-                      onClick={() => setTheme('amber')}
-                      className={`group relative p-4 rounded-lg border flex flex-col items-center gap-3 transition-all ${theme === 'amber' ? 'bg-[#1c1612] border-neon-green shadow-[0_0_15px_rgba(245,158,11,0.1)]' : 'bg-[#1c1612]/50 border-gray-700 hover:bg-[#1c1612] hover:border-gray-500'}`}
-                     >
-                       <div className="w-full h-12 rounded bg-[#120f0a] border border-[#2b211a] flex items-center justify-center gap-2 overflow-hidden">
-                          <div className="w-2 h-2 rounded-full bg-[#f59e0b]"></div>
-                          <div className="w-2 h-2 rounded-full bg-[#d97706]"></div>
-                          <div className="w-2 h-2 rounded-full bg-[#fbbf24]"></div>
-                       </div>
-                       <span className="font-mono text-sm text-gray-300 group-hover:text-white">RETRO_AMBER</span>
-                       {theme === 'amber' && <div className="absolute top-2 right-2 text-neon-green"><Check size={14} /></div>}
-                     </button>
+             <div className="max-w-3xl mx-auto space-y-8 p-6 overflow-y-auto h-full custom-scrollbar pb-20">
+                <div className="bg-night-900/60 backdrop-blur-md border border-gray-800 rounded-lg p-6 space-y-6">
+                  <div className="flex items-center gap-3 border-b border-gray-800 pb-4"><Palette className="text-neon-purple" size={20} /><h3 className="font-bold text-[var(--text-main)]">Interface Theme</h3></div>
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+                     {(Object.keys(THEMES) as Theme[]).map(t => (
+                       <button 
+                        key={t} 
+                        onClick={() => setTheme(t)} 
+                        className={`group relative p-3 rounded border transition-all flex flex-col gap-2 ${theme === t ? 'bg-night-800/80 border-neon-blue shadow-[0_0_15px_rgba(0,208,255,0.05)]' : 'bg-night-800/20 border-gray-800/20 hover:border-gray-700'}`}
+                       >
+                         <div className="flex justify-between items-center">
+                            <span className={`font-mono text-[9px] uppercase tracking-[0.2em] ${theme === t ? 'text-neon-blue' : 'text-gray-500 group-hover:text-gray-400'}`}>{t}</span>
+                            {theme === t && <div className="w-1 h-1 rounded-full bg-neon-blue" />}
+                         </div>
+                         {/* Ultra-minimalist 2px thin line colors */}
+                         <div className="flex gap-[1px] h-[2px] w-full bg-black/40 overflow-hidden rounded-full">
+                           <div className="flex-1 opacity-80" style={{ background: THEMES[t]['--color-neon-green'] }} />
+                           <div className="flex-1 opacity-80" style={{ background: THEMES[t]['--color-neon-purple'] }} />
+                           <div className="flex-1 opacity-80" style={{ background: THEMES[t]['--color-neon-blue'] }} />
+                         </div>
+                       </button>
+                     ))}
                   </div>
                 </div>
 
-                <div className="bg-night-900 border border-gray-800 rounded-lg p-6 space-y-6">
-                  <div className="flex items-center gap-3 border-b border-gray-800 pb-4">
-                    <Database className="text-neon-blue" size={20} />
-                    <h3 className="font-bold text-white">Data Management</h3>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Export Section */}
-                    <div className="space-y-3">
-                      <label className="text-xs text-gray-400 uppercase font-mono tracking-wider">Backup Data</label>
-                      <button 
-                        onClick={handleExport}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-6 bg-night-800 border border-gray-700 hover:border-neon-green hover:bg-night-800/80 text-gray-300 hover:text-white rounded-lg transition-all group"
-                      >
-                        <Download size={24} className="text-gray-500 group-hover:text-neon-green transition-colors" />
-                        <span className="font-mono">Export JSON</span>
-                      </button>
-                      <p className="text-[10px] text-gray-600">Download a local copy of all tasks and notes.</p>
+                <div className="bg-night-900/60 backdrop-blur-md border border-gray-800 rounded-lg p-6 space-y-6">
+                  <div className="flex items-center gap-3 border-b border-gray-800 pb-4"><ImageIcon className="text-neon-blue" size={20} /><h3 className="font-bold text-[var(--text-main)]">Background Customizer</h3></div>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-mono text-gray-500 uppercase flex items-center gap-2"><Globe size={12}/> Image URL</label>
+                        <input type="text" value={bgConfig.url} onChange={e => setBgConfig(prev => ({ ...prev, url: e.target.value }))} className="w-full bg-night-950/50 border border-gray-800 rounded px-3 py-2 text-xs focus:border-neon-blue focus:outline-none placeholder-gray-700" placeholder="https://..." />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-mono text-gray-500 uppercase flex items-center gap-2"><RefreshCw size={12}/> Library</label>
+                        <button onClick={fetchRandomBg} className="w-full flex items-center justify-center gap-2 bg-night-800 border border-gray-700 py-2 rounded text-xs hover:border-neon-green transition-all"><RefreshCw size={14}/> Randomize from Library</button>
+                      </div>
                     </div>
-
-                    {/* Import Section */}
-                    <div className="space-y-3">
-                      <label className="text-xs text-gray-400 uppercase font-mono tracking-wider">Restore Data</label>
-                      <div className="relative group w-full">
-                        <input 
-                          type="file" 
-                          accept=".json"
-                          onChange={handleImport}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                        />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-mono text-gray-500 uppercase flex items-center gap-2"><ImageIcon size={12}/> Physical Upload</label>
+                        <div className="relative h-9">
+                          <input type="file" accept="image/*" onChange={handleBgFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                          <div className="w-full h-full bg-night-800 border border-gray-700 flex items-center justify-center rounded text-xs font-mono text-gray-400">Select Local Image</div>
+                        </div>
+                      </div>
+                      <div className="space-y-2 flex flex-col justify-end">
+                        <button onClick={() => setBgConfig({ ...bgConfig, url: '' })} className="w-full py-2 bg-red-900/20 text-red-500 text-xs rounded border border-red-900/30 hover:bg-red-900/40 transition-all font-mono">CLEAR_BACKGROUND</button>
+                      </div>
+                    </div>
+                    
+                    <div className="pt-4 border-t border-gray-800/50 space-y-4">
+                      <div className="flex items-center justify-between p-3 bg-night-800/30 border border-gray-700 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Sun size={18} className={bgConfig.showRadialGradient ? "text-neon-blue" : "text-gray-600"} />
+                          <div>
+                            <p className="text-xs font-bold text-white uppercase font-mono">Ambient Glow (Radial)</p>
+                            <p className="text-[10px] text-gray-500 font-mono">Enable soft atmospheric lighting</p>
+                          </div>
+                        </div>
                         <button 
-                          className="w-full flex items-center justify-center gap-2 px-4 py-6 bg-night-800 border border-gray-700 group-hover:border-neon-red group-hover:bg-night-800/80 text-gray-300 group-hover:text-white rounded-lg transition-all"
+                          onClick={() => setBgConfig(prev => ({ ...prev, showRadialGradient: !prev.showRadialGradient }))}
+                          className={`w-12 h-6 rounded-full transition-all relative ${bgConfig.showRadialGradient ? 'bg-neon-blue' : 'bg-gray-700'}`}
                         >
-                          <Upload size={24} className="text-gray-500 group-hover:text-neon-red transition-colors" />
-                          <span className="font-mono">Import JSON</span>
+                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all ${bgConfig.showRadialGradient ? 'translate-x-6' : 'translate-x-0'}`} />
                         </button>
                       </div>
-                      <p className="text-[10px] text-gray-600">
-                        {fileError ? <span className="text-neon-red">{fileError}</span> : "Restore from a previously exported file."}
-                      </p>
+
+                      <div className="flex flex-col gap-2">
+                        <div className="flex justify-between text-[10px] font-mono uppercase text-gray-500"><span>Opacity</span><span>{Math.round(bgConfig.opacity * 100)}%</span></div>
+                        <input type="range" min="0" max="1" step="0.01" value={bgConfig.opacity} onChange={e => setBgConfig(prev => ({ ...prev, opacity: parseFloat(e.target.value) }))} className="w-full h-1 bg-night-800 rounded-lg appearance-none cursor-pointer accent-neon-blue" />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex justify-between text-[10px] font-mono uppercase text-gray-500"><span>Blur</span><span>{bgConfig.blur}px</span></div>
+                        <input type="range" min="0" max="20" step="1" value={bgConfig.blur} onChange={e => setBgConfig(prev => ({ ...prev, blur: parseInt(e.target.value) }))} className="w-full h-1 bg-night-800 rounded-lg appearance-none cursor-pointer accent-neon-blue" />
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-night-900 border border-gray-800 rounded-lg p-6">
-                   <div className="text-center space-y-2">
-                     <p className="text-xs font-mono text-gray-500 uppercase">Application Version</p>
-                     <p className="text-white font-bold">NIGHT_SHIFT v1.3.1</p>
-                     <p className="text-xs text-gray-600">Local Storage Only • No Cloud Sync</p>
-                   </div>
+                <div className="bg-night-900/60 backdrop-blur-md border border-gray-800 rounded-lg p-6 space-y-6">
+                  <div className="flex items-center gap-3 border-b border-gray-800 pb-4"><Database className="text-neon-blue" size={20} /><h3 className="font-bold text-[var(--text-main)]">Data Management</h3></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button onClick={() => storage.exportToJson({ tasks, notes, pomodoroSessions, theme, backgroundConfig: bgConfig })} className="flex items-center justify-center gap-2 py-4 bg-night-800 border border-gray-700 rounded hover:border-neon-green text-xs font-mono transition-colors"><Download size={18}/> Export Backup</button>
+                    <div className="relative group"><input type="file" onChange={handleImport} className="absolute inset-0 opacity-0 cursor-pointer" /><div className="h-full flex items-center justify-center gap-2 py-4 bg-night-800 border border-gray-700 rounded group-hover:border-neon-red text-xs font-mono transition-colors"><Upload size={18}/> Import Backup</div></div>
+                  </div>
                 </div>
              </div>
            )}
         </div>
         
-        {/* Overlay Gradients */}
-        <div className="absolute pointer-events-none inset-0 bg-gradient-to-t from-night-950 via-transparent to-transparent opacity-50 z-10"></div>
+        {/* Vignette Shadow Overlay */}
+        <div className="absolute pointer-events-none inset-0 bg-gradient-to-t from-night-950 via-transparent to-transparent opacity-40 z-10" />
       </main>
     </div>
   );

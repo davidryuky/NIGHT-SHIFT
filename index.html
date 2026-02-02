@@ -37,7 +37,6 @@
     </script>
     <style>
       :root {
-        /* Default Theme: NIGHT_SHIFT (Cyberpunk) */
         --color-night-950: #050505;
         --color-night-900: #0a0a0c;
         --color-night-800: #121214;
@@ -46,25 +45,32 @@
         --color-neon-purple: #bd00ff;
         --color-neon-blue: #00d0ff;
         --color-neon-red: #ff003c;
+        --text-main: #e5e5e5;
       }
 
       body {
         background-color: var(--color-night-950);
-        color: #e5e5e5;
+        color: var(--text-main);
+        transition: background-color 0.5s ease;
       }
+      
       ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: var(--color-night-900); 
+        background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: #333; 
-        border-radius: 4px;
+        background: rgba(128, 128, 128, 0.2);
+        border-radius: 10px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #555; 
+        background: rgba(128, 128, 128, 0.4);
+      }
+
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
       }
     </style>
   <script type="importmap">

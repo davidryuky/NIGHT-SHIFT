@@ -22,7 +22,11 @@ const TIMER_MODES: Record<TimerMode, { label: string; minutes: number; color: st
   longBreak: { label: 'Long Break', minutes: 15, color: 'text-neon-blue', icon: Brain },
 };
 
-const ZenArea: React.FC = () => {
+interface ZenAreaProps {
+  onSessionComplete: (durationMinutes: number) => void;
+}
+
+const ZenArea: React.FC<ZenAreaProps> = ({ onSessionComplete }) => {
   const [mode, setMode] = useState<TimerMode>('focus');
   const [timeLeft, setTimeLeft] = useState(TIMER_MODES.focus.minutes * 60);
   const [isActive, setIsActive] = useState(false);
@@ -39,11 +43,14 @@ const ZenArea: React.FC = () => {
       }, 1000);
     } else if (timeLeft === 0) {
       setIsActive(false);
-      // Optional: Play a sound here
+      // Record session only for focus mode
+      if (mode === 'focus') {
+        onSessionComplete(TIMER_MODES.focus.minutes);
+      }
     }
 
     return () => clearInterval(interval);
-  }, [isActive, timeLeft]);
+  }, [isActive, timeLeft, mode, onSessionComplete]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -91,9 +98,6 @@ const ZenArea: React.FC = () => {
 
   const CurrentIcon = TIMER_MODES[mode].icon;
 
-  // Layout classes
-  // When in fullscreen API mode, the element becomes the root viewport.
-  // We need to ensure it has full width/height and background.
   const containerClasses = isFullscreen
     ? "w-full h-full bg-night-950 flex flex-col items-center justify-center p-6 space-y-12 overflow-y-auto"
     : "max-w-4xl mx-auto h-full flex flex-col items-center justify-center p-6 space-y-12";
@@ -101,7 +105,6 @@ const ZenArea: React.FC = () => {
   return (
     <div ref={containerRef} className={containerClasses}>
       
-      {/* Pomodoro Section */}
       <div className="w-full max-w-md bg-night-900/50 border border-gray-800 rounded-2xl p-8 backdrop-blur-sm relative overflow-hidden group">
         <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-${TIMER_MODES[mode].color.replace('text-', '')} to-transparent opacity-50`}></div>
         
@@ -158,7 +161,6 @@ const ZenArea: React.FC = () => {
         </div>
       </div>
 
-      {/* Quote Section */}
       <div className="w-full max-w-2xl text-center space-y-6">
         <div className="relative p-8 rounded-xl bg-night-800/30 border border-dashed border-gray-800 hover:border-gray-700 transition-colors">
           <Quote className="absolute top-4 left-4 text-gray-700 opacity-50" size={32} />

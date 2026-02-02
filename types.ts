@@ -28,15 +28,28 @@ export interface Note {
   tags: string[];
   color: string;
   createdAt: number;
-  x?: number; // For future absolute positioning if needed
+  x?: number;
   y?: number;
 }
 
-export type Theme = 'cyberpunk' | 'dracula' | 'amber';
+export interface PomodoroSession {
+  id: string;
+  timestamp: number;
+  durationMinutes: number;
+}
+
+export type Theme = 'cyberpunk' | 'dracula' | 'amber' | 'gamer' | 'paper' | 'lofi';
 
 export interface AppState {
   tasks: Task[];
   notes: Note[];
+  pomodoroSessions: PomodoroSession[];
   theme: Theme;
+  backgroundConfig: {
+    url: string;
+    opacity: number;
+    blur: number;
+    showRadialGradient: boolean;
+  };
   lastSaved: number;
 }
