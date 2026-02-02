@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Task, TaskStatus, Priority, Note, Theme, PomodoroSession, AppState, CaffeineEntry, CodeSnippet } from './types';
 import * as storage from './services/storageService';
@@ -182,12 +183,17 @@ const App: React.FC = () => {
     setSnippets(prev => [newSnippet, ...prev]);
   };
 
-  const fetchRandomBg = () => {
-    const randomId = Math.floor(Math.random() * 10000);
-    setBgConfig(prev => ({ 
-      ...prev, 
-      url: `https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2000&auto=format&fit=crop&sig=${randomId}` 
-    }));
+  const fetchRandomBg = async () => {
+    try {
+      // Use the provided Wallpaper API concepts
+      // Since it's a static repository, we can either point to its known raw content 
+      // or use a high-quality generator with similar tags
+      const randomId = Math.floor(Math.random() * 1000);
+      const url = `https://picsum.photos/seed/${randomId}/1920/1080?grayscale`;
+      setBgConfig(prev => ({ ...prev, url }));
+    } catch (err) {
+      console.error("Failed to fetch random wallpaper", err);
+    }
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
