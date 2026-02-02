@@ -1,10 +1,11 @@
-import { AppState, Task, Note, Theme, PomodoroSession, CaffeineEntry } from '../types';
+import { AppState, Task, Note, Theme, PomodoroSession, CaffeineEntry, CodeSnippet } from '../types';
 
 const STORAGE_KEY = 'night_shift_db';
 
 export const saveToLocal = (
   tasks: Task[], 
   notes: Note[], 
+  snippets: CodeSnippet[],
   theme: Theme, 
   pomodoroSessions: PomodoroSession[],
   backgroundConfig: AppState['backgroundConfig'],
@@ -14,6 +15,7 @@ export const saveToLocal = (
   const state: AppState = {
     tasks,
     notes,
+    snippets,
     theme,
     pomodoroSessions,
     backgroundConfig,
@@ -27,6 +29,7 @@ export const saveToLocal = (
 export const loadFromLocal = (): { 
   tasks: Task[], 
   notes: Note[], 
+  snippets: CodeSnippet[],
   theme: Theme, 
   pomodoroSessions: PomodoroSession[],
   backgroundConfig: AppState['backgroundConfig'],
@@ -44,12 +47,13 @@ export const loadFromLocal = (): {
     showCaffeineCounter: false
   };
   
-  if (!raw) return { tasks: [], notes: [], theme: 'night_shift', pomodoroSessions: [], backgroundConfig: defaultConfig, caffeineLog: [], toolsConfig: defaultTools };
+  if (!raw) return { tasks: [], notes: [], snippets: [], theme: 'night_shift', pomodoroSessions: [], backgroundConfig: defaultConfig, caffeineLog: [], toolsConfig: defaultTools };
   try {
     const state = JSON.parse(raw) as AppState;
     return { 
       tasks: state.tasks || [], 
       notes: state.notes || [],
+      snippets: state.snippets || [],
       theme: state.theme || 'night_shift',
       pomodoroSessions: state.pomodoroSessions || [],
       backgroundConfig: state.backgroundConfig || defaultConfig,
@@ -58,7 +62,7 @@ export const loadFromLocal = (): {
     };
   } catch (e) {
     console.error('Failed to load local data', e);
-    return { tasks: [], notes: [], theme: 'night_shift', pomodoroSessions: [], backgroundConfig: defaultConfig, caffeineLog: [], toolsConfig: defaultTools };
+    return { tasks: [], notes: [], snippets: [], theme: 'night_shift', pomodoroSessions: [], backgroundConfig: defaultConfig, caffeineLog: [], toolsConfig: defaultTools };
   }
 };
 

@@ -32,6 +32,15 @@ export interface Note {
   y?: number;
 }
 
+export interface CodeSnippet {
+  id: string;
+  title: string;
+  code: string;
+  language: string;
+  tags: string[];
+  createdAt: number;
+}
+
 export interface PomodoroSession {
   id: string;
   timestamp: number;
@@ -49,6 +58,7 @@ export type Theme = 'night_shift' | 'cyberpunk' | 'dracula' | 'amber' | 'paper' 
 export interface AppState {
   tasks: Task[];
   notes: Note[];
+  snippets: CodeSnippet[];
   pomodoroSessions: PomodoroSession[];
   caffeineLog: CaffeineEntry[];
   theme: Theme;

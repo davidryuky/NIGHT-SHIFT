@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Task, TaskStatus, Priority, Note, Theme, PomodoroSession, AppState, CaffeineEntry } from './types';
+import { Task, TaskStatus, Priority, Note, Theme, PomodoroSession, AppState, CaffeineEntry, CodeSnippet } from './types';
 import * as storage from './services/storageService';
 import TaskBoard from './components/TaskBoard';
 import Stats from './components/Stats';
 import ZenArea from './components/ZenArea';
 import NotesArea from './components/NotesArea';
+import SnippetVault from './components/SnippetVault';
 import Clock from './components/Clock';
 import { 
   Moon, Cpu, Layout, Settings, PanelLeft, Menu, X, Coffee, StickyNote, 
   Download, Upload, Database, Palette, Check, Zap, Image as ImageIcon, 
-  RefreshCw, Globe, Sun, Terminal, Activity, ChevronRight
+  RefreshCw, Globe, Sun, Terminal, Activity, ChevronRight, Code
 } from 'lucide-react';
 
 const THEMES: Record<Theme, Record<string, string>> = {
@@ -18,11 +19,11 @@ const THEMES: Record<Theme, Record<string, string>> = {
     '--color-night-900': '#080808',
     '--color-night-800': '#111111',
     '--color-night-700': '#1a1a1a',
-    '--color-neon-green': '#e0e0e0',
-    '--color-neon-purple': '#777777',
-    '--color-neon-blue': '#555555', // Este cinza define a cor do radial glow
-    '--color-neon-red': '#ff3333',
-    '--text-main': '#d1d1d1',
+    '--color-neon-green': '#FFFFFF',
+    '--color-neon-purple': '#555555',
+    '--color-neon-blue': '#333333', // Este cinza define a cor do radial glow
+    '--color-neon-red': '#ff0033',
+    '--text-main': '#e3e3e3',
   },
   cyberpunk: {
     '--color-night-950': '#050505',
@@ -84,12 +85,13 @@ const THEMES: Record<Theme, Record<string, string>> = {
 const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [snippets, setSnippets] = useState<CodeSnippet[]>([]);
   const [pomodoroSessions, setPomodoroSessions] = useState<PomodoroSession[]>([]);
   const [caffeineLog, setCaffeineLog] = useState<CaffeineEntry[]>([]);
   const [theme, setTheme] = useState<Theme>('night_shift');
   const [bgConfig, setBgConfig] = useState<AppState['backgroundConfig']>({ url: '', opacity: 0.3, blur: 0, showRadialGradient: true });
   const [toolsConfig, setToolsConfig] = useState<AppState['toolsConfig']>({ showCaffeineCounter: false });
-  const [activeTab, setActiveTab] = useState<'board' | 'stats' | 'zen' | 'notes' | 'config'>('board');
+  const [activeTab, setActiveTab] = useState<'board' | 'stats' | 'zen' | 'notes' | 'snippets' | 'config'>('board');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showCaffeineModal, setShowCaffeineModal] = useState(false);
@@ -98,6 +100,7 @@ const App: React.FC = () => {
     const loaded = storage.loadFromLocal();
     setTasks(loaded.tasks);
     setNotes(loaded.notes);
+    setSnippets(loaded.snippets);
     setTheme(loaded.theme);
     setPomodoroSessions(loaded.pomodoroSessions);
     setBgConfig(loaded.backgroundConfig);
@@ -106,8 +109,8 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    storage.saveToLocal(tasks, notes, theme, pomodoroSessions, bgConfig, caffeineLog, toolsConfig);
-  }, [tasks, notes, theme, pomodoroSessions, bgConfig, caffeineLog, toolsConfig]);
+    storage.saveToLocal(tasks, notes, snippets, theme, pomodoroSessions, bgConfig, caffeineLog, toolsConfig);
+  }, [tasks, notes, snippets, theme, pomodoroSessions, bgConfig, caffeineLog, toolsConfig]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -167,48 +170,28 @@ const App: React.FC = () => {
     setTasks(prev => [...prev, newTask]);
   };
 
-  const handleUpdateTask = (updatedTask: Task) => {
-    setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
-  };
-
-  const handleDeleteTask = (id: string) => {
-    setTasks(prev => prev.filter(t => t.id !== id));
-  };
-
-  const handleUpdateNote = (updatedNote: Note) => {
-    setNotes(prev => prev.map(n => n.id === updatedNote.id ? updatedNote : n));
-  };
-
-  const handleSessionComplete = (durationMinutes: number) => {
-    const newSession: PomodoroSession = {
+  const handleAddSnippet = (partial: Partial<CodeSnippet>) => {
+    const newSnippet: CodeSnippet = {
       id: crypto.randomUUID(),
-      timestamp: Date.now(),
-      durationMinutes,
+      title: partial.title || 'Untitled Snippet',
+      code: partial.code || '',
+      language: partial.language || 'typescript',
+      tags: partial.tags || [],
+      createdAt: Date.now(),
     };
-    setPomodoroSessions(prev => [...prev, newSession]);
+    setSnippets(prev => [newSnippet, ...prev]);
   };
 
-  const fetchRandomBg = async () => {
-    try {
-      const randomId = Math.floor(Math.random() * 1000);
-      const url = `https://picsum.photos/seed/${randomId}/1920/1080?grayscale`;
-      setBgConfig(prev => ({ ...prev, url }));
-    } catch (err) {
-      console.error("Failed to fetch random wallpaper", err);
-    }
+  // Fix: Added fetchRandomBg to provide dynamic backgrounds
+  const fetchRandomBg = () => {
+    const randomId = Math.floor(Math.random() * 10000);
+    setBgConfig(prev => ({ 
+      ...prev, 
+      url: `https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2000&auto=format&fit=crop&sig=${randomId}` 
+    }));
   };
 
-  const handleBgFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setBgConfig(prev => ({ ...prev, url: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
+  // Fix: Added handleImport to handle JSON backup files
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -216,13 +199,14 @@ const App: React.FC = () => {
       const imported = await storage.importFromJson(file);
       if (imported.tasks) setTasks(imported.tasks);
       if (imported.notes) setNotes(imported.notes);
-      if (imported.theme) setTheme(imported.theme as Theme);
+      if (imported.snippets) setSnippets(imported.snippets);
+      if (imported.theme) setTheme(imported.theme);
+      if (imported.pomodoroSessions) setPomodoroSessions(imported.pomodoroSessions);
       if (imported.backgroundConfig) setBgConfig(imported.backgroundConfig);
       if (imported.caffeineLog) setCaffeineLog(imported.caffeineLog);
       if (imported.toolsConfig) setToolsConfig(imported.toolsConfig);
-      e.target.value = '';
     } catch (err) {
-      alert('Invalid backup file.');
+      console.error('Import failed', err);
     }
   };
 
@@ -231,10 +215,10 @@ const App: React.FC = () => {
       <div className="p-6 border-b border-gray-800 flex justify-between items-center shrink-0">
         <div>
           <h1 className="text-xl font-mono font-bold text-[var(--text-main)] tracking-tighter flex items-center gap-2">
-            <Moon className="text-[var(--color-neon-blue)]" size={20} />
+            <Moon className="text-gray-400" size={20} />
             <span>NIGHT_SHIFT</span>
           </h1>
-          <p className="text-[10px] text-gray-500 mt-2 font-mono uppercase tracking-widest">System Online</p>
+          <p className="text-[10px] text-gray-500 mt-2 font-mono uppercase tracking-widest">Dev Protocol Online</p>
         </div>
         <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-gray-500 hover:text-white transition-colors">
           <X size={20} />
@@ -244,10 +228,11 @@ const App: React.FC = () => {
       <nav className="p-4 space-y-2 flex-1 overflow-y-auto custom-scrollbar">
         {[
           { id: 'board', label: 'Work Board', icon: Layout, color: 'border-white' },
-          { id: 'notes', label: 'Notepad', icon: StickyNote, color: 'border-gray-400' },
-          { id: 'stats', label: 'Metrics', icon: Cpu, color: 'border-gray-500' },
-          { id: 'zen', label: 'Zen Area', icon: Coffee, color: 'border-gray-600' },
-          { id: 'config', label: 'Config', icon: Settings, color: 'border-gray-700' },
+          { id: 'notes', label: 'Notepad', icon: StickyNote, color: 'border-gray-500' },
+          { id: 'snippets', label: 'Vault', icon: Code, color: 'border-gray-300' },
+          { id: 'stats', label: 'Metrics', icon: Activity, color: 'border-gray-600' },
+          { id: 'zen', label: 'Zen Area', icon: Coffee, color: 'border-gray-700' },
+          { id: 'config', label: 'Config', icon: Settings, color: 'border-gray-800' },
         ].map(tab => (
           <button 
             key={tab.id}
@@ -262,7 +247,7 @@ const App: React.FC = () => {
 
       <div className="p-6 border-t border-gray-800 shrink-0">
           <p className="text-xs text-gray-600 font-mono text-center opacity-70">
-            Dev: <span className="text-[var(--color-neon-blue)]">@Davi.develop</span>
+            Dev: <span className="text-white">@Davi.develop</span>
           </p>
       </div>
     </div>
@@ -284,13 +269,13 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Ambient Radial Glow Layer - Color segue a variável --color-neon-blue (cinza no Night Shift) */}
+      {/* Ambient Radial Glow Layer */}
       <div 
         className="fixed inset-0 pointer-events-none z-1 transition-all duration-1000"
         style={{
           background: `radial-gradient(circle at 50% -10%, var(--color-neon-blue) 0%, transparent 70%)`,
           mixBlendMode: 'screen',
-          opacity: bgConfig.showRadialGradient ? 0.2 : 0
+          opacity: bgConfig.showRadialGradient ? 0.3 : 0
         }}
       />
 
@@ -338,8 +323,9 @@ const App: React.FC = () => {
         </header>
 
         <div className="flex-1 overflow-hidden p-4 md:p-6 relative z-0">
-           {activeTab === 'board' && <TaskBoard tasks={tasks} onAddTask={handleAddTask} onUpdateTask={handleUpdateTask} onDeleteTask={handleDeleteTask} />}
-           {activeTab === 'notes' && <NotesArea notes={notes} onAddNote={() => setNotes(prev => [{ id: crypto.randomUUID(), content: '', tags: [], color: 'neutral', createdAt: Date.now() }, ...prev])} onUpdateNote={handleUpdateNote} onDeleteNote={(id) => setNotes(prev => prev.filter(n => n.id !== id))} onReorderNotes={(s, e) => setNotes(prev => { const r = Array.from(prev); const [rem] = r.splice(s, 1); r.splice(e, 0, rem); return r; })} />}
+           {activeTab === 'board' && <TaskBoard tasks={tasks} onAddTask={handleAddTask} onUpdateTask={t => setTasks(prev => prev.map(old => old.id === t.id ? t : old))} onDeleteTask={id => setTasks(prev => prev.filter(t => t.id !== id))} />}
+           {activeTab === 'notes' && <NotesArea notes={notes} onAddNote={() => setNotes(prev => [{ id: crypto.randomUUID(), content: '', tags: [], color: 'neutral', createdAt: Date.now() }, ...prev])} onUpdateNote={n => setNotes(prev => prev.map(old => old.id === n.id ? n : old))} onDeleteNote={id => setNotes(prev => prev.filter(n => n.id !== id))} onReorderNotes={(s, e) => setNotes(prev => { const r = Array.from(prev); const [rem] = r.splice(s, 1); r.splice(e, 0, rem); return r; })} />}
+           {activeTab === 'snippets' && <SnippetVault snippets={snippets} onAddSnippet={handleAddSnippet} onUpdateSnippet={s => setSnippets(prev => prev.map(old => old.id === s.id ? s : old))} onDeleteSnippet={id => setSnippets(prev => prev.filter(s => s.id !== id))} />}
            {activeTab === 'stats' && (
              <div className="max-w-4xl mx-auto space-y-6 overflow-y-auto h-full pr-2 custom-scrollbar pb-10">
                <h2 className="text-2xl font-bold text-[var(--text-main)]">Productivity Metrics</h2>
@@ -363,10 +349,9 @@ const App: React.FC = () => {
                </div>
              </div>
            )}
-           {activeTab === 'zen' && <ZenArea onSessionComplete={handleSessionComplete} />}
+           {activeTab === 'zen' && <ZenArea onSessionComplete={m => setPomodoroSessions(prev => [...prev, { id: crypto.randomUUID(), timestamp: Date.now(), durationMinutes: m }])} />}
            {activeTab === 'config' && (
              <div className="max-w-3xl mx-auto space-y-8 p-6 overflow-y-auto h-full custom-scrollbar pb-20">
-                {/* Tools Section */}
                 <div className="bg-night-900/60 backdrop-blur-md border border-gray-800 rounded-lg p-6 space-y-6">
                   <div className="flex items-center gap-3 border-b border-gray-800 pb-4"><Terminal className="text-gray-400" size={20} /><h3 className="font-bold text-[var(--text-main)] uppercase tracking-widest text-sm">System Tools</h3></div>
                   <div className="space-y-4">
@@ -401,7 +386,6 @@ const App: React.FC = () => {
                        >
                          <div className="flex justify-between items-center">
                             <span className={`font-mono text-[9px] uppercase tracking-[0.2em] ${theme === t ? 'text-white' : 'text-gray-500 group-hover:text-gray-400'}`}>{t.replace('_', ' ')}</span>
-                            {theme === t && <div className="w-1 h-1 rounded-full bg-white" />}
                          </div>
                          <div className="flex gap-[1px] h-[2px] w-full bg-black/40 overflow-hidden rounded-full">
                            <div className="flex-1 opacity-80" style={{ background: THEMES[t]['--color-neon-green'] }} />
@@ -455,7 +439,7 @@ const App: React.FC = () => {
                 <div className="bg-night-900/60 backdrop-blur-md border border-gray-800 rounded-lg p-6 space-y-6">
                   <div className="flex items-center gap-3 border-b border-gray-800 pb-4"><Database className="text-gray-400" size={20} /><h3 className="font-bold text-[var(--text-main)] uppercase tracking-widest text-sm">Data Management</h3></div>
                   <div className="grid grid-cols-2 gap-4">
-                    <button onClick={() => storage.exportToJson({ tasks, notes, pomodoroSessions, theme, backgroundConfig: bgConfig, caffeineLog, toolsConfig })} className="flex items-center justify-center gap-2 py-4 bg-night-800 border border-gray-700 rounded hover:border-white text-xs font-mono transition-colors text-gray-300"><Download size={18}/> Export Backup</button>
+                    <button onClick={() => storage.exportToJson({ tasks, notes, snippets, pomodoroSessions, theme, backgroundConfig: bgConfig, caffeineLog, toolsConfig })} className="flex items-center justify-center gap-2 py-4 bg-night-800 border border-gray-700 rounded hover:border-white text-xs font-mono transition-colors text-gray-300"><Download size={18}/> Export Backup</button>
                     <div className="relative group"><input type="file" onChange={handleImport} className="absolute inset-0 opacity-0 cursor-pointer" /><div className="h-full flex items-center justify-center gap-2 py-4 bg-night-800 border border-gray-700 rounded group-hover:border-white text-xs font-mono transition-colors text-gray-300"><Upload size={18}/> Import Backup</div></div>
                   </div>
                 </div>
