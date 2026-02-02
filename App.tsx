@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Task, TaskStatus, Priority, Note, Theme, PomodoroSession, AppState } from './types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Task, TaskStatus, Priority, Note, Theme, PomodoroSession, AppState, CaffeineEntry } from './types';
 import * as storage from './services/storageService';
 import TaskBoard from './components/TaskBoard';
 import Stats from './components/Stats';
@@ -9,18 +9,29 @@ import Clock from './components/Clock';
 import { 
   Moon, Cpu, Layout, Settings, PanelLeft, Menu, X, Coffee, StickyNote, 
   Download, Upload, Database, Palette, Check, Zap, Image as ImageIcon, 
-  RefreshCw, Globe, Sun
+  RefreshCw, Globe, Sun, Terminal, Activity, ChevronRight
 } from 'lucide-react';
 
 const THEMES: Record<Theme, Record<string, string>> = {
+  night_shift: {
+    '--color-night-950': '#020202',
+    '--color-night-900': '#080808',
+    '--color-night-800': '#111111',
+    '--color-night-700': '#1a1a1a',
+    '--color-neon-green': '#e0e0e0',
+    '--color-neon-purple': '#777777',
+    '--color-neon-blue': '#555555', // Este cinza define a cor do radial glow
+    '--color-neon-red': '#ff3333',
+    '--text-main': '#d1d1d1',
+  },
   cyberpunk: {
     '--color-night-950': '#050505',
     '--color-night-900': '#0a0a0c',
     '--color-night-800': '#121214',
     '--color-night-700': '#1c1c1f',
-    '--color-neon-green': '#00ff9d',
-    '--color-neon-purple': '#bd00ff',
-    '--color-neon-blue': '#00d0ff',
+    '--color-neon-green': '#ffee00',
+    '--color-neon-purple': '#ff00ea',
+    '--color-neon-blue': '#00f2ff',
     '--color-neon-red': '#ff003c',
     '--text-main': '#e5e5e5',
   },
@@ -45,17 +56,6 @@ const THEMES: Record<Theme, Record<string, string>> = {
     '--color-neon-blue': '#fbbf24',
     '--color-neon-red': '#ef4444',
     '--text-main': '#e5e5e5',
-  },
-  gamer: {
-    '--color-night-950': '#000000',
-    '--color-night-900': '#050505',
-    '--color-night-800': '#0a0a0a',
-    '--color-night-700': '#111111',
-    '--color-neon-green': '#39ff14',
-    '--color-neon-purple': '#ff00ff',
-    '--color-neon-blue': '#00ffff',
-    '--color-neon-red': '#ff0000',
-    '--text-main': '#ffffff',
   },
   paper: {
     '--color-night-950': '#fcfaf2',
@@ -85,11 +85,14 @@ const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [pomodoroSessions, setPomodoroSessions] = useState<PomodoroSession[]>([]);
-  const [theme, setTheme] = useState<Theme>('cyberpunk');
+  const [caffeineLog, setCaffeineLog] = useState<CaffeineEntry[]>([]);
+  const [theme, setTheme] = useState<Theme>('night_shift');
   const [bgConfig, setBgConfig] = useState<AppState['backgroundConfig']>({ url: '', opacity: 0.3, blur: 0, showRadialGradient: true });
+  const [toolsConfig, setToolsConfig] = useState<AppState['toolsConfig']>({ showCaffeineCounter: false });
   const [activeTab, setActiveTab] = useState<'board' | 'stats' | 'zen' | 'notes' | 'config'>('board');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showCaffeineModal, setShowCaffeineModal] = useState(false);
 
   useEffect(() => {
     const loaded = storage.loadFromLocal();
@@ -98,11 +101,13 @@ const App: React.FC = () => {
     setTheme(loaded.theme);
     setPomodoroSessions(loaded.pomodoroSessions);
     setBgConfig(loaded.backgroundConfig);
+    setCaffeineLog(loaded.caffeineLog);
+    setToolsConfig(loaded.toolsConfig);
   }, []);
 
   useEffect(() => {
-    storage.saveToLocal(tasks, notes, theme, pomodoroSessions, bgConfig);
-  }, [tasks, notes, theme, pomodoroSessions, bgConfig]);
+    storage.saveToLocal(tasks, notes, theme, pomodoroSessions, bgConfig, caffeineLog, toolsConfig);
+  }, [tasks, notes, theme, pomodoroSessions, bgConfig, caffeineLog, toolsConfig]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -118,6 +123,35 @@ const App: React.FC = () => {
       }
     }
   }, [theme]);
+
+  const activeCaffeine = useMemo(() => {
+    const now = Date.now();
+    const halfLifeMs = 5 * 60 * 60 * 1000;
+    return caffeineLog.reduce((total, entry) => {
+      const elapsed = now - entry.timestamp;
+      if (elapsed < 0) return total + entry.amount;
+      const decay = Math.pow(0.5, elapsed / halfLifeMs);
+      return total + entry.amount * decay;
+    }, 0);
+  }, [caffeineLog]);
+
+  const peakTime = useMemo(() => {
+    if (caffeineLog.length === 0) return null;
+    const lastEntry = [...caffeineLog].sort((a, b) => b.timestamp - a.timestamp)[0];
+    const peakAt = lastEntry.timestamp + (45 * 60 * 1000);
+    if (Date.now() > peakAt) return "Past Peak";
+    return new Date(peakAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }, [caffeineLog]);
+
+  const handleLogCaffeine = (mg: number) => {
+    const newEntry: CaffeineEntry = {
+      id: crypto.randomUUID(),
+      amount: mg,
+      timestamp: Date.now(),
+    };
+    setCaffeineLog(prev => [...prev, newEntry]);
+    setShowCaffeineModal(false);
+  };
 
   const handleAddTask = (partialTask: Partial<Task>) => {
     const newTask: Task = {
@@ -184,6 +218,8 @@ const App: React.FC = () => {
       if (imported.notes) setNotes(imported.notes);
       if (imported.theme) setTheme(imported.theme as Theme);
       if (imported.backgroundConfig) setBgConfig(imported.backgroundConfig);
+      if (imported.caffeineLog) setCaffeineLog(imported.caffeineLog);
+      if (imported.toolsConfig) setToolsConfig(imported.toolsConfig);
       e.target.value = '';
     } catch (err) {
       alert('Invalid backup file.');
@@ -195,7 +231,7 @@ const App: React.FC = () => {
       <div className="p-6 border-b border-gray-800 flex justify-between items-center shrink-0">
         <div>
           <h1 className="text-xl font-mono font-bold text-[var(--text-main)] tracking-tighter flex items-center gap-2">
-            <Moon className="text-neon-blue" size={20} />
+            <Moon className="text-[var(--color-neon-blue)]" size={20} />
             <span>NIGHT_SHIFT</span>
           </h1>
           <p className="text-[10px] text-gray-500 mt-2 font-mono uppercase tracking-widest">System Online</p>
@@ -207,11 +243,11 @@ const App: React.FC = () => {
       
       <nav className="p-4 space-y-2 flex-1 overflow-y-auto custom-scrollbar">
         {[
-          { id: 'board', label: 'Work Board', icon: Layout, color: 'border-neon-green' },
-          { id: 'notes', label: 'Notepad', icon: StickyNote, color: 'border-neon-blue' },
-          { id: 'stats', label: 'Metrics', icon: Cpu, color: 'border-neon-purple' },
-          { id: 'zen', label: 'Zen Area', icon: Coffee, color: 'border-neon-red' },
-          { id: 'config', label: 'Config', icon: Settings, color: 'border-gray-400' },
+          { id: 'board', label: 'Work Board', icon: Layout, color: 'border-white' },
+          { id: 'notes', label: 'Notepad', icon: StickyNote, color: 'border-gray-400' },
+          { id: 'stats', label: 'Metrics', icon: Cpu, color: 'border-gray-500' },
+          { id: 'zen', label: 'Zen Area', icon: Coffee, color: 'border-gray-600' },
+          { id: 'config', label: 'Config', icon: Settings, color: 'border-gray-700' },
         ].map(tab => (
           <button 
             key={tab.id}
@@ -226,16 +262,15 @@ const App: React.FC = () => {
 
       <div className="p-6 border-t border-gray-800 shrink-0">
           <p className="text-xs text-gray-600 font-mono text-center opacity-70">
-            Dev: <span className="text-neon-blue">@Davi.develop</span>
+            Dev: <span className="text-[var(--color-neon-blue)]">@Davi.develop</span>
           </p>
       </div>
     </div>
   );
 
   return (
-    <div className={`flex h-screen bg-night-950 text-[var(--text-main)] font-sans selection:bg-neon-green/30 selection:text-white overflow-hidden transition-colors duration-500 relative`}>
+    <div className={`flex h-screen bg-night-950 text-[var(--text-main)] font-sans selection:bg-white/10 selection:text-white overflow-hidden transition-colors duration-500 relative`}>
       
-      {/* 1. Background Image Layer */}
       {bgConfig.url && (
         <div 
           className="fixed inset-0 pointer-events-none z-0 transition-all duration-700"
@@ -249,23 +284,21 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* 2. Ambient Radial Glow Layer - Fixed logic for toggle */}
+      {/* Ambient Radial Glow Layer - Color segue a variável --color-neon-blue (cinza no Night Shift) */}
       <div 
         className="fixed inset-0 pointer-events-none z-1 transition-all duration-1000"
         style={{
           background: `radial-gradient(circle at 50% -10%, var(--color-neon-blue) 0%, transparent 70%)`,
           mixBlendMode: 'screen',
-          opacity: bgConfig.showRadialGradient ? 0.15 : 0
+          opacity: bgConfig.showRadialGradient ? 0.2 : 0
         }}
       />
 
-      {/* Mobile Backdrop */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 bg-black/80 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
       )}
 
-      {/* Sidebar Container */}
-      <aside className={`fixed inset-y-0 left-0 z-50 bg-night-900/90 md:bg-night-900/95 border-r border-gray-800 flex flex-col transition-all duration-300 backdrop-blur-sm overflow-hidden ${isMobileMenuOpen ? 'w-72 translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 ${isSidebarOpen ? 'md:w-72' : 'md:w-0 md:border-r-0'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 bg-night-900/95 border-r border-gray-800 flex flex-col transition-all duration-300 backdrop-blur-sm overflow-hidden ${isMobileMenuOpen ? 'w-72 translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 ${isSidebarOpen ? 'md:w-72' : 'md:w-0 md:border-r-0'}`}>
         <SidebarContent />
       </aside>
 
@@ -277,10 +310,33 @@ const App: React.FC = () => {
              <div className="h-4 w-px bg-gray-700 hidden md:block"></div>
              <span className="text-sm text-gray-400 font-mono truncate uppercase tracking-tighter">{activeTab}_SESSION</span>
           </div>
-          <Clock />
+          
+          <div className="flex items-center gap-4 md:gap-8">
+            {toolsConfig.showCaffeineCounter && (
+              <div 
+                onClick={() => setShowCaffeineModal(true)}
+                className="hidden sm:flex items-center gap-3 px-3 py-1 bg-night-800/50 border border-gray-700 rounded-full cursor-pointer hover:border-white transition-all group"
+              >
+                <Coffee size={14} className="text-gray-400 group-hover:text-white" />
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-mono leading-none text-gray-500 uppercase">Active_Caff</span>
+                  <span className="text-xs font-mono font-bold text-white">{Math.round(activeCaffeine)}<span className="text-[9px] text-gray-500 ml-0.5">mg</span></span>
+                </div>
+                {peakTime && peakTime !== "Past Peak" && (
+                   <div className="h-4 w-px bg-gray-700 mx-1"></div>
+                )}
+                {peakTime && peakTime !== "Past Peak" && (
+                   <div className="flex flex-col">
+                    <span className="text-[9px] font-mono leading-none text-gray-500 uppercase">Peak</span>
+                    <span className="text-xs font-mono font-bold text-gray-300">{peakTime}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            <Clock />
+          </div>
         </header>
 
-        {/* 3. Main Content Wrapper */}
         <div className="flex-1 overflow-hidden p-4 md:p-6 relative z-0">
            {activeTab === 'board' && <TaskBoard tasks={tasks} onAddTask={handleAddTask} onUpdateTask={handleUpdateTask} onDeleteTask={handleDeleteTask} />}
            {activeTab === 'notes' && <NotesArea notes={notes} onAddNote={() => setNotes(prev => [{ id: crypto.randomUUID(), content: '', tags: [], color: 'neutral', createdAt: Date.now() }, ...prev])} onUpdateNote={handleUpdateNote} onDeleteNote={(id) => setNotes(prev => prev.filter(n => n.id !== id))} onReorderNotes={(s, e) => setNotes(prev => { const r = Array.from(prev); const [rem] = r.splice(s, 1); r.splice(e, 0, rem); return r; })} />}
@@ -291,18 +347,18 @@ const App: React.FC = () => {
                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                  <div className="p-4 bg-night-900/60 backdrop-blur-md rounded border border-gray-800">
                     <h3 className="text-gray-400 font-mono text-[10px] uppercase mb-1">Tasks Pending</h3>
-                    <p className="text-2xl text-neon-blue font-mono">{tasks.filter(t => t.status !== TaskStatus.DONE).length}</p>
+                    <p className="text-2xl text-white font-mono">{tasks.filter(t => t.status !== TaskStatus.DONE).length}</p>
                  </div>
                  <div className="p-4 bg-night-900/60 backdrop-blur-md rounded border border-gray-800">
                     <h3 className="text-gray-400 font-mono text-[10px] uppercase mb-1">Tasks Completed</h3>
-                    <p className="text-2xl text-neon-green font-mono">{tasks.filter(t => t.status === TaskStatus.DONE).length}</p>
+                    <p className="text-2xl text-white font-mono">{tasks.filter(t => t.status === TaskStatus.DONE).length}</p>
                  </div>
                  <div className="p-4 bg-night-900/60 backdrop-blur-md rounded border border-gray-800 flex justify-between items-center">
                     <div>
                       <h3 className="text-gray-400 font-mono text-[10px] uppercase mb-1">Total Focus</h3>
-                      <p className="text-2xl text-neon-purple font-mono">{pomodoroSessions.reduce((a, b) => a + b.durationMinutes, 0)} min</p>
+                      <p className="text-2xl text-white font-mono">{pomodoroSessions.reduce((a, b) => a + b.durationMinutes, 0)} min</p>
                     </div>
-                    <Zap className="text-neon-purple opacity-30" />
+                    <Zap className="text-gray-600 opacity-30" />
                  </div>
                </div>
              </div>
@@ -310,20 +366,43 @@ const App: React.FC = () => {
            {activeTab === 'zen' && <ZenArea onSessionComplete={handleSessionComplete} />}
            {activeTab === 'config' && (
              <div className="max-w-3xl mx-auto space-y-8 p-6 overflow-y-auto h-full custom-scrollbar pb-20">
+                {/* Tools Section */}
                 <div className="bg-night-900/60 backdrop-blur-md border border-gray-800 rounded-lg p-6 space-y-6">
-                  <div className="flex items-center gap-3 border-b border-gray-800 pb-4"><Palette className="text-neon-purple" size={20} /><h3 className="font-bold text-[var(--text-main)]">Interface Theme</h3></div>
+                  <div className="flex items-center gap-3 border-b border-gray-800 pb-4"><Terminal className="text-gray-400" size={20} /><h3 className="font-bold text-[var(--text-main)] uppercase tracking-widest text-sm">System Tools</h3></div>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-night-800/30 border border-gray-700 rounded-lg">
+                      <div className="flex items-center gap-4">
+                        <div className={`p-2 rounded-lg ${toolsConfig.showCaffeineCounter ? 'bg-white/10 text-white' : 'bg-gray-800 text-gray-600'}`}>
+                          <Coffee size={20} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-white uppercase font-mono tracking-tight">Caffeine Counter</p>
+                          <p className="text-[10px] text-gray-500 font-mono">Monitor consumption and peak focus windows.</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => setToolsConfig(prev => ({ ...prev, showCaffeineCounter: !prev.showCaffeineCounter }))}
+                        className={`w-12 h-6 rounded-full transition-all relative ${toolsConfig.showCaffeineCounter ? 'bg-white' : 'bg-gray-700'}`}
+                      >
+                        <div className={`absolute top-1 left-1 w-4 h-4 rounded-full transition-all ${toolsConfig.showCaffeineCounter ? 'bg-black translate-x-6' : 'bg-white translate-x-0'}`} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-night-900/60 backdrop-blur-md border border-gray-800 rounded-lg p-6 space-y-6">
+                  <div className="flex items-center gap-3 border-b border-gray-800 pb-4"><Palette className="text-gray-400" size={20} /><h3 className="font-bold text-[var(--text-main)] uppercase tracking-widest text-sm">Interface Theme</h3></div>
                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                      {(Object.keys(THEMES) as Theme[]).map(t => (
                        <button 
                         key={t} 
                         onClick={() => setTheme(t)} 
-                        className={`group relative p-3 rounded border transition-all flex flex-col gap-2 ${theme === t ? 'bg-night-800/80 border-neon-blue shadow-[0_0_15px_rgba(0,208,255,0.05)]' : 'bg-night-800/20 border-gray-800/20 hover:border-gray-700'}`}
+                        className={`group relative p-3 rounded border transition-all flex flex-col gap-2 ${theme === t ? 'bg-night-800/80 border-white/40 shadow-lg' : 'bg-night-800/20 border-gray-800/20 hover:border-gray-700'}`}
                        >
                          <div className="flex justify-between items-center">
-                            <span className={`font-mono text-[9px] uppercase tracking-[0.2em] ${theme === t ? 'text-neon-blue' : 'text-gray-500 group-hover:text-gray-400'}`}>{t}</span>
-                            {theme === t && <div className="w-1 h-1 rounded-full bg-neon-blue" />}
+                            <span className={`font-mono text-[9px] uppercase tracking-[0.2em] ${theme === t ? 'text-white' : 'text-gray-500 group-hover:text-gray-400'}`}>{t.replace('_', ' ')}</span>
+                            {theme === t && <div className="w-1 h-1 rounded-full bg-white" />}
                          </div>
-                         {/* Ultra-minimalist 2px thin line colors */}
                          <div className="flex gap-[1px] h-[2px] w-full bg-black/40 overflow-hidden rounded-full">
                            <div className="flex-1 opacity-80" style={{ background: THEMES[t]['--color-neon-green'] }} />
                            <div className="flex-1 opacity-80" style={{ background: THEMES[t]['--color-neon-purple'] }} />
@@ -335,74 +414,100 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="bg-night-900/60 backdrop-blur-md border border-gray-800 rounded-lg p-6 space-y-6">
-                  <div className="flex items-center gap-3 border-b border-gray-800 pb-4"><ImageIcon className="text-neon-blue" size={20} /><h3 className="font-bold text-[var(--text-main)]">Background Customizer</h3></div>
+                  <div className="flex items-center gap-3 border-b border-gray-800 pb-4"><ImageIcon className="text-gray-400" size={20} /><h3 className="font-bold text-[var(--text-main)] uppercase tracking-widest text-sm">Background Customizer</h3></div>
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-xs font-mono text-gray-500 uppercase flex items-center gap-2"><Globe size={12}/> Image URL</label>
-                        <input type="text" value={bgConfig.url} onChange={e => setBgConfig(prev => ({ ...prev, url: e.target.value }))} className="w-full bg-night-950/50 border border-gray-800 rounded px-3 py-2 text-xs focus:border-neon-blue focus:outline-none placeholder-gray-700" placeholder="https://..." />
+                        <input type="text" value={bgConfig.url} onChange={e => setBgConfig(prev => ({ ...prev, url: e.target.value }))} className="w-full bg-night-950/50 border border-gray-800 rounded px-3 py-2 text-xs focus:border-white focus:outline-none placeholder-gray-700 text-white font-mono" placeholder="https://..." />
                       </div>
                       <div className="space-y-2">
                         <label className="text-xs font-mono text-gray-500 uppercase flex items-center gap-2"><RefreshCw size={12}/> Library</label>
-                        <button onClick={fetchRandomBg} className="w-full flex items-center justify-center gap-2 bg-night-800 border border-gray-700 py-2 rounded text-xs hover:border-neon-green transition-all"><RefreshCw size={14}/> Randomize from Library</button>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-xs font-mono text-gray-500 uppercase flex items-center gap-2"><ImageIcon size={12}/> Physical Upload</label>
-                        <div className="relative h-9">
-                          <input type="file" accept="image/*" onChange={handleBgFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                          <div className="w-full h-full bg-night-800 border border-gray-700 flex items-center justify-center rounded text-xs font-mono text-gray-400">Select Local Image</div>
-                        </div>
-                      </div>
-                      <div className="space-y-2 flex flex-col justify-end">
-                        <button onClick={() => setBgConfig({ ...bgConfig, url: '' })} className="w-full py-2 bg-red-900/20 text-red-500 text-xs rounded border border-red-900/30 hover:bg-red-900/40 transition-all font-mono">CLEAR_BACKGROUND</button>
+                        <button onClick={fetchRandomBg} className="w-full flex items-center justify-center gap-2 bg-night-800 border border-gray-700 py-2 rounded text-xs hover:border-white transition-all text-gray-300 font-mono"><RefreshCw size={14}/> Randomize Library</button>
                       </div>
                     </div>
                     
                     <div className="pt-4 border-t border-gray-800/50 space-y-4">
                       <div className="flex items-center justify-between p-3 bg-night-800/30 border border-gray-700 rounded-lg">
                         <div className="flex items-center gap-3">
-                          <Sun size={18} className={bgConfig.showRadialGradient ? "text-neon-blue" : "text-gray-600"} />
+                          <Sun size={18} className={bgConfig.showRadialGradient ? "text-white" : "text-gray-600"} />
                           <div>
                             <p className="text-xs font-bold text-white uppercase font-mono">Ambient Glow (Radial)</p>
-                            <p className="text-[10px] text-gray-500 font-mono">Enable soft atmospheric lighting</p>
+                            <p className="text-[10px] text-gray-500 font-mono">Atmospheric lighting effect.</p>
                           </div>
                         </div>
                         <button 
                           onClick={() => setBgConfig(prev => ({ ...prev, showRadialGradient: !prev.showRadialGradient }))}
-                          className={`w-12 h-6 rounded-full transition-all relative ${bgConfig.showRadialGradient ? 'bg-neon-blue' : 'bg-gray-700'}`}
+                          className={`w-12 h-6 rounded-full transition-all relative ${bgConfig.showRadialGradient ? 'bg-white' : 'bg-gray-700'}`}
                         >
-                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all ${bgConfig.showRadialGradient ? 'translate-x-6' : 'translate-x-0'}`} />
+                          <div className={`absolute top-1 left-1 w-4 h-4 rounded-full transition-all ${bgConfig.showRadialGradient ? 'bg-black translate-x-6' : 'bg-white translate-x-0'}`} />
                         </button>
                       </div>
 
                       <div className="flex flex-col gap-2">
                         <div className="flex justify-between text-[10px] font-mono uppercase text-gray-500"><span>Opacity</span><span>{Math.round(bgConfig.opacity * 100)}%</span></div>
-                        <input type="range" min="0" max="1" step="0.01" value={bgConfig.opacity} onChange={e => setBgConfig(prev => ({ ...prev, opacity: parseFloat(e.target.value) }))} className="w-full h-1 bg-night-800 rounded-lg appearance-none cursor-pointer accent-neon-blue" />
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <div className="flex justify-between text-[10px] font-mono uppercase text-gray-500"><span>Blur</span><span>{bgConfig.blur}px</span></div>
-                        <input type="range" min="0" max="20" step="1" value={bgConfig.blur} onChange={e => setBgConfig(prev => ({ ...prev, blur: parseInt(e.target.value) }))} className="w-full h-1 bg-night-800 rounded-lg appearance-none cursor-pointer accent-neon-blue" />
+                        <input type="range" min="0" max="1" step="0.01" value={bgConfig.opacity} onChange={e => setBgConfig(prev => ({ ...prev, opacity: parseFloat(e.target.value) }))} className="w-full h-1 bg-night-800 rounded-lg appearance-none cursor-pointer accent-white" />
                       </div>
                     </div>
                   </div>
                 </div>
 
                 <div className="bg-night-900/60 backdrop-blur-md border border-gray-800 rounded-lg p-6 space-y-6">
-                  <div className="flex items-center gap-3 border-b border-gray-800 pb-4"><Database className="text-neon-blue" size={20} /><h3 className="font-bold text-[var(--text-main)]">Data Management</h3></div>
+                  <div className="flex items-center gap-3 border-b border-gray-800 pb-4"><Database className="text-gray-400" size={20} /><h3 className="font-bold text-[var(--text-main)] uppercase tracking-widest text-sm">Data Management</h3></div>
                   <div className="grid grid-cols-2 gap-4">
-                    <button onClick={() => storage.exportToJson({ tasks, notes, pomodoroSessions, theme, backgroundConfig: bgConfig })} className="flex items-center justify-center gap-2 py-4 bg-night-800 border border-gray-700 rounded hover:border-neon-green text-xs font-mono transition-colors"><Download size={18}/> Export Backup</button>
-                    <div className="relative group"><input type="file" onChange={handleImport} className="absolute inset-0 opacity-0 cursor-pointer" /><div className="h-full flex items-center justify-center gap-2 py-4 bg-night-800 border border-gray-700 rounded group-hover:border-neon-red text-xs font-mono transition-colors"><Upload size={18}/> Import Backup</div></div>
+                    <button onClick={() => storage.exportToJson({ tasks, notes, pomodoroSessions, theme, backgroundConfig: bgConfig, caffeineLog, toolsConfig })} className="flex items-center justify-center gap-2 py-4 bg-night-800 border border-gray-700 rounded hover:border-white text-xs font-mono transition-colors text-gray-300"><Download size={18}/> Export Backup</button>
+                    <div className="relative group"><input type="file" onChange={handleImport} className="absolute inset-0 opacity-0 cursor-pointer" /><div className="h-full flex items-center justify-center gap-2 py-4 bg-night-800 border border-gray-700 rounded group-hover:border-white text-xs font-mono transition-colors text-gray-300"><Upload size={18}/> Import Backup</div></div>
                   </div>
                 </div>
              </div>
            )}
         </div>
         
-        {/* Vignette Shadow Overlay */}
-        <div className="absolute pointer-events-none inset-0 bg-gradient-to-t from-night-950 via-transparent to-transparent opacity-40 z-10" />
+        <div className="absolute pointer-events-none inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-40 z-10" />
       </main>
+
+      {showCaffeineModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="bg-night-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-night-950/50">
+               <div className="flex items-center gap-3">
+                 <Coffee className="text-white" />
+                 <h2 className="text-lg font-bold text-white font-mono uppercase tracking-tighter">Log_Caffeine</h2>
+               </div>
+               <button onClick={() => setShowCaffeineModal(false)} className="text-gray-500 hover:text-white transition-colors"><X size={20} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-[10px] text-gray-500 font-mono uppercase tracking-widest text-center mb-2">Select Infusion Type</p>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Espresso', mg: 80, icon: '☕' },
+                  { label: 'Energy Drink', mg: 150, icon: '🔋' },
+                  { label: 'Black Tea', mg: 40, icon: '🍵' },
+                  { label: 'Soda/Cola', mg: 35, icon: '🥤' },
+                ].map(item => (
+                  <button 
+                    key={item.label}
+                    onClick={() => handleLogCaffeine(item.mg)}
+                    className="flex flex-col items-center justify-center p-5 bg-night-800/40 border border-gray-800 rounded-xl hover:border-white hover:bg-night-800 transition-all group"
+                  >
+                    <span className="text-2xl mb-2 group-hover:scale-110 transition-transform">{item.icon}</span>
+                    <span className="text-[11px] font-bold text-gray-200 uppercase tracking-tight">{item.label}</span>
+                    <span className="text-[9px] text-gray-500 font-mono mt-1">{item.mg}mg</span>
+                  </button>
+                ))}
+              </div>
+              <div className="pt-4 border-t border-gray-800 mt-2">
+                 <button 
+                  onClick={() => setCaffeineLog([])}
+                  className="w-full py-2 bg-red-900/10 text-red-500/80 border border-red-900/20 rounded-lg text-[9px] font-mono hover:bg-red-900/20 transition-all uppercase tracking-widest"
+                 >
+                   Clear_Infusion_History
+                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

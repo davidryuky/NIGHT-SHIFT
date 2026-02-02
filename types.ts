@@ -38,18 +38,28 @@ export interface PomodoroSession {
   durationMinutes: number;
 }
 
-export type Theme = 'cyberpunk' | 'dracula' | 'amber' | 'gamer' | 'paper' | 'lofi';
+export interface CaffeineEntry {
+  id: string;
+  amount: number; // em mg
+  timestamp: number;
+}
+
+export type Theme = 'night_shift' | 'cyberpunk' | 'dracula' | 'amber' | 'paper' | 'lofi';
 
 export interface AppState {
   tasks: Task[];
   notes: Note[];
   pomodoroSessions: PomodoroSession[];
+  caffeineLog: CaffeineEntry[];
   theme: Theme;
   backgroundConfig: {
     url: string;
     opacity: number;
     blur: number;
     showRadialGradient: boolean;
+  };
+  toolsConfig: {
+    showCaffeineCounter: boolean;
   };
   lastSaved: number;
 }
