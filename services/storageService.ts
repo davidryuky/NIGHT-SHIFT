@@ -1,3 +1,4 @@
+
 import { AppState, Task, Note, Theme, PomodoroSession, CaffeineEntry, CodeSnippet } from '../types';
 
 const STORAGE_KEY = 'night_shift_db';
@@ -39,6 +40,7 @@ export const loadFromLocal = (): {
   const raw = localStorage.getItem(STORAGE_KEY);
   const defaultConfig: AppState['backgroundConfig'] = { 
     url: '', 
+    type: 'image',
     opacity: 0.3, 
     blur: 0, 
     showRadialGradient: true 

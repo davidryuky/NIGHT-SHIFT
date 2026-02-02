@@ -9,9 +9,9 @@ import NotesArea from './components/NotesArea';
 import SnippetVault from './components/SnippetVault';
 import Clock from './components/Clock';
 import { 
-  Moon, Cpu, Layout, Settings, PanelLeft, Menu, X, Coffee, StickyNote, 
-  Download, Upload, Database, Palette, Check, Zap, Image as ImageIcon, 
-  RefreshCw, Globe, Sun, Terminal, Activity, ChevronRight, Code, Eye
+  Moon, Layout, Settings, PanelLeft, Menu, X, Coffee, StickyNote, 
+  Download, Upload, Database, Palette, Zap, Image as ImageIcon, 
+  RefreshCw, Globe, Sun, Terminal, Activity, Code
 } from 'lucide-react';
 
 const THEMES: Record<Theme, Record<string, string>> = {
@@ -22,7 +22,7 @@ const THEMES: Record<Theme, Record<string, string>> = {
     '--color-night-700': '#1a1a1a',
     '--color-neon-green': '#FFFFFF',
     '--color-neon-purple': '#555555',
-    '--color-neon-blue': '#222222', // Glow acromático suave
+    '--color-neon-blue': '#222222', 
     '--color-neon-red': '#ff0033',
     '--text-main': '#d1d1d1',
   },
@@ -90,7 +90,13 @@ const App: React.FC = () => {
   const [pomodoroSessions, setPomodoroSessions] = useState<PomodoroSession[]>([]);
   const [caffeineLog, setCaffeineLog] = useState<CaffeineEntry[]>([]);
   const [theme, setTheme] = useState<Theme>('night_shift');
-  const [bgConfig, setBgConfig] = useState<AppState['backgroundConfig']>({ url: '', opacity: 0.3, blur: 0, showRadialGradient: true });
+  const [bgConfig, setBgConfig] = useState<AppState['backgroundConfig']>({ 
+    url: '', 
+    type: 'image',
+    opacity: 0.3, 
+    blur: 0, 
+    showRadialGradient: true 
+  });
   const [toolsConfig, setToolsConfig] = useState<AppState['toolsConfig']>({ showCaffeineCounter: false });
   const [activeTab, setActiveTab] = useState<'board' | 'stats' | 'zen' | 'notes' | 'snippets' | 'config'>('board');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -184,15 +190,36 @@ const App: React.FC = () => {
   };
 
   const fetchRandomBg = async () => {
+    const repoUrl = 'https://harsh-bin.github.io/wallpaper-api';
+    
     try {
-      // Use the provided Wallpaper API concepts
-      // Since it's a static repository, we can either point to its known raw content 
-      // or use a high-quality generator with similar tags
-      const randomId = Math.floor(Math.random() * 1000);
-      const url = `https://picsum.photos/seed/${randomId}/1920/1080?grayscale`;
-      setBgConfig(prev => ({ ...prev, url }));
+      const response = await fetch(`${repoUrl}/random_media_list.json`);
+      if (!response.ok) throw new Error('Failed to load media list');
+      
+      const data = await response.json();
+      const mediaFiles = data.media;
+      
+      if (!mediaFiles || mediaFiles.length === 0) throw new Error('Empty media list');
+
+      const randomIndex = Math.floor(Math.random() * mediaFiles.length);
+      const randomMediaFile = mediaFiles[randomIndex];
+      const mediaUrl = `${repoUrl}/${randomMediaFile}`;
+      
+      const isVideo = randomMediaFile.endsWith('.mp4') || randomMediaFile.endsWith('.webm');
+      
+      setBgConfig(prev => ({
+        ...prev,
+        type: isVideo ? 'video' : 'image',
+        url: mediaUrl
+      }));
     } catch (err) {
-      console.error("Failed to fetch random wallpaper", err);
+      console.error("Random background fetch failed:", err);
+      // Fallback
+      setBgConfig(prev => ({
+        ...prev,
+        type: 'image',
+        url: 'https://picsum.photos/1920/1080?grayscale'
+      }));
     }
   };
 
@@ -206,7 +233,7 @@ const App: React.FC = () => {
       if (imported.snippets) setSnippets(imported.snippets);
       if (imported.theme) setTheme(imported.theme as Theme);
       if (imported.pomodoroSessions) setPomodoroSessions(imported.pomodoroSessions);
-      if (imported.backgroundConfig) setBgConfig(imported.backgroundConfig);
+      if (imported.backgroundConfig) setBgConfig(imported.backgroundConfig as any);
       if (imported.caffeineLog) setCaffeineLog(imported.caffeineLog);
       if (imported.toolsConfig) setToolsConfig(imported.toolsConfig);
     } catch (err) {
@@ -261,16 +288,34 @@ const App: React.FC = () => {
     <div className={`flex h-screen bg-night-950 text-[var(--text-main)] font-sans selection:bg-white/10 selection:text-white overflow-hidden transition-colors duration-500 relative`}>
       
       {bgConfig.url && (
-        <div 
-          className="fixed inset-0 pointer-events-none z-0 transition-all duration-700"
-          style={{ 
-            backgroundImage: `url(${bgConfig.url})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            opacity: bgConfig.opacity,
-            filter: `blur(${bgConfig.blur}px)`
-          }}
-        />
+        <div className="fixed inset-0 pointer-events-none z-0 transition-all duration-700 overflow-hidden">
+          {bgConfig.type === 'video' ? (
+            <video 
+              autoPlay 
+              loop 
+              muted 
+              playsInline
+              className="w-full h-full object-cover"
+              style={{ 
+                opacity: bgConfig.opacity,
+                filter: `blur(${bgConfig.blur}px)`
+              }}
+            >
+              <source src={bgConfig.url} type="video/mp4" />
+            </video>
+          ) : (
+            <div 
+              className="w-full h-full"
+              style={{ 
+                backgroundImage: `url(${bgConfig.url})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                opacity: bgConfig.opacity,
+                filter: `blur(${bgConfig.blur}px)`
+              }}
+            />
+          )}
+        </div>
       )}
 
       {/* Ambient Radial Glow Layer */}
@@ -410,8 +455,16 @@ const App: React.FC = () => {
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-xs font-mono text-gray-500 uppercase flex items-center gap-2"><Globe size={12}/> Image URL</label>
-                        <input type="text" value={bgConfig.url} onChange={e => setBgConfig(prev => ({ ...prev, url: e.target.value }))} className="w-full bg-night-950/50 border border-gray-800 rounded px-3 py-2 text-xs focus:border-white focus:outline-none placeholder-gray-700 text-white font-mono" placeholder="https://..." />
+                        <label className="text-xs font-mono text-gray-500 uppercase flex items-center gap-2"><Globe size={12}/> Image/Video URL</label>
+                        <input 
+                          type="text" 
+                          value={bgConfig.url} 
+                          onChange={e => {
+                            const val = e.target.value;
+                            const isVideo = val.endsWith('.mp4') || val.endsWith('.webm');
+                            setBgConfig(prev => ({ ...prev, url: val, type: isVideo ? 'video' : 'image' }));
+                          }} 
+                          className="w-full bg-night-950/50 border border-gray-800 rounded px-3 py-2 text-xs focus:border-white focus:outline-none placeholder-gray-700 text-white font-mono" placeholder="https://..." />
                       </div>
                       <div className="space-y-2">
                         <label className="text-xs font-mono text-gray-500 uppercase flex items-center gap-2"><RefreshCw size={12}/> Library</label>

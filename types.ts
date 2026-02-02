@@ -1,3 +1,4 @@
+
 export enum TaskStatus {
   TODO = 'TODO',
   IN_PROGRESS = 'IN_PROGRESS',
@@ -64,6 +65,7 @@ export interface AppState {
   theme: Theme;
   backgroundConfig: {
     url: string;
+    type: 'image' | 'video';
     opacity: number;
     blur: number;
     showRadialGradient: boolean;
